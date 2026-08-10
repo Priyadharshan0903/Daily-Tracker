@@ -11,7 +11,7 @@ struct DaybookApp: App {
             RootView()
                 .environmentObject(store)
         } label: {
-            Image(systemName: "checkmark.square")
+            Image(nsImage: TrayIcon.sunrise)
         }
         .menuBarExtraStyle(.window)
     }
