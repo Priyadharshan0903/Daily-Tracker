@@ -119,20 +119,19 @@ struct WeekView: View {
             Text(title)
                 .font(.system(size: 12, weight: .medium))
                 .foregroundColor(titleColor)
+            // Padding lives on the ZStack so the placeholder and the text view
+            // share one origin — no per-child tuning against AppKit's insets.
             ZStack(alignment: .topLeading) {
                 if text.wrappedValue.isEmpty {
                     Text(placeholder)
                         .font(.system(size: 13))
                         .foregroundColor(Theme.neutral500)
-                        .padding(.top, 6)
-                        .padding(.leading, 7)
+                        .allowsHitTesting(false)
                 }
-                TextEditor(text: text)
-                    .font(.system(size: 13))
-                    .scrollContentBackground(.hidden)
-                    .padding(.vertical, 2)
-                    .padding(.horizontal, 3)
+                NotesTextView(text: text, fontSize: 13)
             }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
             .frame(height: 48)
             .background(RoundedRectangle(cornerRadius: 8).fill(Theme.neutral100))
             .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Theme.neutral300))
