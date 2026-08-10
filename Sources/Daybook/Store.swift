@@ -95,7 +95,32 @@ final class Store: ObservableObject {
         return df
     }()
 
+    static let fullDateFormatter: DateFormatter = {
+        let df = DateFormatter()
+        df.locale = Locale(identifier: "en_US_POSIX")
+        df.dateFormat = "EEEE, MMMM d"
+        return df
+    }()
+
     func dayKey(for date: Date) -> String { Store.dayFormatter.string(from: date) }
+
+    /// "Monday, August 10" — used for the calligraphic date header.
+    func longLabel(forDayKey key: String) -> String {
+        guard let d = date(fromDayKey: key) else { return key }
+        return Store.fullDateFormatter.string(from: d)
+    }
+
+    /// "Aug 10"
+    func shortLabel(forDayKey key: String) -> String {
+        guard let d = date(fromDayKey: key) else { return key }
+        return Store.monthDayFormatter.string(from: d)
+    }
+
+    func shiftDay(_ key: String, by days: Int) -> String {
+        guard let d = date(fromDayKey: key),
+              let shifted = calendar.date(byAdding: .day, value: days, to: d) else { return key }
+        return dayKey(for: shifted)
+    }
 
     func date(fromDayKey key: String) -> Date? { Store.dayFormatter.date(from: key) }
 
@@ -113,16 +138,36 @@ final class Store: ObservableObject {
     }
 
     var todayEntries: [Entry] {
-        let key = todayKey
-        return data.entries.filter { $0.day == key }
+        entries(on: todayKey)
+    }
+
+    func entries(on dayKey: String) -> [Entry] {
+        data.entries.filter { $0.day == dayKey }
+    }
+
+    /// Unfinished entries from earlier days. They keep their original date — the weekly
+    /// report stays truthful about when work started — but keep surfacing until done.
+    /// Day keys are "yyyy-MM-dd", so string ordering is chronological.
+    func carriedOver(before dayKey: String) -> [Entry] {
+        data.entries
+            .filter { !$0.done && $0.day < dayKey }
+            .sorted { $0.day < $1.day }
+    }
+
+    var daysWithEntries: Set<String> {
+        Set(data.entries.map(\.day))
+    }
+
+    var daysWithUnfinished: Set<String> {
+        Set(data.entries.filter { !$0.done }.map(\.day))
     }
 
     // MARK: - Entry operations
 
-    func addEntry(text: String, tag: String) {
+    func addEntry(text: String, tag: String, day: String? = nil) {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
-        data.entries.append(Entry(text: trimmed, tag: tag, day: todayKey))
+        data.entries.append(Entry(text: trimmed, tag: tag, day: day ?? todayKey))
     }
 
     func toggle(_ id: UUID) {

@@ -98,6 +98,27 @@ struct SettingsView: View {
             .frame(width: labelWidth, alignment: .leading)
 
             VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 6) {
+                    Button {
+                        store.data.settings.defaultTag = ""
+                    } label: {
+                        ZStack {
+                            Circle().strokeBorder(store.data.settings.defaultTag.isEmpty ? Theme.accent : Theme.neutral500,
+                                                  lineWidth: 1.5)
+                            if store.data.settings.defaultTag.isEmpty {
+                                Circle().fill(Theme.accent).frame(width: 7, height: 7)
+                            }
+                        }
+                        .frame(width: 14, height: 14)
+                        .contentShape(Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .pointingCursor()
+                    .help("New tasks start with no tag")
+                    Text("No tag")
+                        .font(.system(size: 12.5))
+                        .foregroundColor(Theme.neutral600)
+                }
                 ForEach(store.data.settings.tags, id: \.self) { tag in
                     TagEditRow(tag: tag,
                                isDefault: tag == store.data.settings.defaultTag,
@@ -110,11 +131,12 @@ struct SettingsView: View {
                     Circle()
                         .strokeBorder(Color.clear, lineWidth: 1.5)
                         .frame(width: 14, height: 14)
-                    TextField("New tag…", text: $newTag)
-                        .textFieldStyle(.roundedBorder)
-                        .font(.system(size: 12.5))
+                    PlaceholderField(placeholder: "New tag…", text: $newTag, size: 12.5, onSubmit: addTag)
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 4)
+                        .background(RoundedRectangle(cornerRadius: 6).fill(Color.white))
+                        .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Theme.neutral300))
                         .frame(width: 132)
-                        .onSubmit(addTag)
                     Button("Add", action: addTag)
                         .buttonStyle(.plain)
                         .font(.system(size: 12, weight: .semibold))

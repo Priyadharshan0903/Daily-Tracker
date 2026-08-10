@@ -22,14 +22,14 @@ struct WeekView: View {
                 navButton(system: "chevron.right", disabled: idx >= starts.count - 1) { weekIdx = idx + 1 }
             }
 
-            ScrollView {
+            FittedScrollView(maxHeight: 250) {
                 VStack(alignment: .leading, spacing: 11) {
                     ForEach(week.days) { day in
                         daySection(day)
                     }
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .frame(maxHeight: 250)
 
             noteField(title: "Highlights", titleColor: Theme.neutral700,
                       placeholder: "What went well this week?",

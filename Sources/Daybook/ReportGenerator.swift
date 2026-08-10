@@ -20,11 +20,12 @@ enum ReportGenerator {
         let generated = generatedOn.formatted(date: .long, time: .omitted)
         let daysHTML = week.days.map { day -> String in
             let rows = day.entries.map { entry in
-                """
+                let tag = entry.tag.isEmpty ? "" : "<span class=\"tag\">\(escape(entry.tag))</span>"
+                return """
                 <div class="row">
                   <span class="mark">\(entry.done ? "✓" : "○")</span>
                   <span class="row-text">\(escape(entry.text))</span>
-                  <span class="tag">\(escape(entry.tag))</span>
+                  \(tag)
                 </div>
                 """
             }.joined(separator: "\n")
