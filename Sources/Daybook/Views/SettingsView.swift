@@ -11,29 +11,41 @@ struct SettingsView: View {
     /// Fixed slot so the delete × never shifts when "Save" appears.
     private let actionWidth: CGFloat = 40
 
+    // Sizes naturally. A FittedScrollView here fought the popover's minimum
+    // content height and under-reported its own, spilling over the footer.
     var body: some View {
-        FittedScrollView(maxHeight: 430) {
-            content
-        }
-    }
-
-    private var content: some View {
         VStack(alignment: .leading, spacing: 0) {
-            row("Daily reminder") {
+            row("Daily reminder", hint: "A nudge to write the day down") {
                 HStack(spacing: 10) {
                     Toggle("", isOn: binding(\.reminderEnabled))
                         .toggleStyle(DaybookToggleStyle())
                         .labelsHidden()
-                    DatePicker("", selection: reminderTimeBinding, displayedComponents: .hourAndMinute)
-                        .labelsHidden()
-                        .disabled(!store.data.settings.reminderEnabled)
-                        .opacity(store.data.settings.reminderEnabled ? 1 : 0.45)
+
+                    if store.data.settings.reminderEnabled {
+                        HStack(spacing: 6) {
+                            Text("at")
+                                .font(.system(size: 12))
+                                .foregroundColor(Theme.neutral600)
+                            // .field drops the stepper arrows that crowded the row.
+                            DatePicker("", selection: reminderTimeBinding,
+                                       displayedComponents: .hourAndMinute)
+                                .datePickerStyle(.field)
+                                .labelsHidden()
+                                .fixedSize()
+                        }
+                    } else {
+                        Text("Off")
+                            .font(.system(size: 12))
+                            .foregroundColor(Theme.neutral500)
+                    }
+
                     if !Reminders.available {
                         Text("(bundle only)")
                             .font(.system(size: 11))
                             .foregroundColor(Theme.neutral500)
                     }
                 }
+                .animation(.easeOut(duration: 0.15), value: store.data.settings.reminderEnabled)
             }
             divider
 
@@ -83,11 +95,21 @@ struct SettingsView: View {
         Rectangle().fill(Theme.divider).frame(height: 1)
     }
 
-    private func row<Content: View>(_ label: String, @ViewBuilder content: () -> Content) -> some View {
+    private func row<Content: View>(_ label: String,
+                                    hint: String? = nil,
+                                    @ViewBuilder content: () -> Content) -> some View {
         HStack(alignment: .center, spacing: 12) {
-            Text(label)
-                .font(.system(size: 13, weight: .medium))
-                .frame(width: labelWidth, alignment: .leading)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(label)
+                    .font(.system(size: 13, weight: .medium))
+                if let hint {
+                    Text(hint)
+                        .font(.system(size: 10.5))
+                        .foregroundColor(Theme.neutral500)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .frame(width: labelWidth, alignment: .leading)
             content()
             Spacer(minLength: 0)
         }

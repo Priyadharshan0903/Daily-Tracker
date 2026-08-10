@@ -3,6 +3,9 @@ import SwiftUI
 struct RootView: View {
     @EnvironmentObject var store: Store
     @State private var tab: Tab = .today
+    /// Date state lives here so the header can drive it. nil = the real today.
+    @State private var selectedDay: String?
+    @State private var showCalendar = false
     @Namespace private var tabNamespace
 
     enum Tab: String, CaseIterable {
@@ -10,6 +13,9 @@ struct RootView: View {
         case week = "This Week"
         case settings = "Settings"
     }
+
+    private var dayKey: String { selectedDay ?? store.todayKey }
+    private var isToday: Bool { dayKey == store.todayKey }
 
     private func select(_ item: Tab) {
         withAnimation(.spring(response: 0.32, dampingFraction: 0.85)) {
@@ -23,14 +29,22 @@ struct RootView: View {
             tabBar
             Rectangle().fill(Theme.divider).frame(height: 1)
 
-            Group {
-                switch tab {
-                case .today: TodayView()
-                case .week: WeekView()
-                case .settings: SettingsView()
+            // One scroll view for the whole content area; the tabs are plain
+            // content. Nothing measures itself, so nothing can under-report and
+            // spill over the footer.
+            ScrollView {
+                Group {
+                    switch tab {
+                    case .today: TodayView(selectedDay: $selectedDay, showCalendar: $showCalendar)
+                    case .week: WeekView()
+                    case .settings: SettingsView()
+                    }
                 }
+                .frame(maxWidth: .infinity, alignment: .top)
+                .transition(.opacity)
             }
-            .transition(.opacity)
+            .scrollIndicators(.never)
+            .frame(height: Theme.contentHeight)
 
             quipFooter
         }
@@ -49,21 +63,56 @@ struct RootView: View {
                 .foregroundColor(Theme.accent)
             Text("Daybook")
                 .font(.system(size: 17, weight: .semibold))
-            Spacer()
+                .fixedSize()
+            Spacer(minLength: 8)
+            if tab == .today {
+                dateNav
+            }
+        }
+        .padding(EdgeInsets(top: 14, leading: 18, bottom: 0, trailing: 18))
+    }
+
+    private var dateNav: some View {
+        HStack(spacing: 2) {
+            stepButton("chevron.left", disabled: false) { step(-1) }
+
             Button {
-                select(.settings)
+                withAnimation(.easeOut(duration: 0.18)) { showCalendar.toggle() }
             } label: {
-                Image(systemName: "gearshape")
-                    .font(.system(size: 14))
-                    .foregroundColor(Theme.neutral600)
-                    .frame(width: 30, height: 30)
+                Text(store.longLabel(forDayKey: dayKey))
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(Theme.text)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .pointingCursor()
-            .help("Settings")
+            .help(showCalendar ? "Close the date picker" : "Pick a date")
+
+            stepButton("chevron.right", disabled: false) { step(1) }
         }
-        .padding(EdgeInsets(top: 14, leading: 18, bottom: 0, trailing: 18))
+    }
+
+    private func stepButton(_ symbol: String, disabled: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.system(size: 10, weight: .bold))
+                .foregroundColor(disabled ? Theme.neutral300 : Theme.neutral700)
+                .frame(width: 20, height: 20)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(disabled)
+        .pointingCursor(!disabled)
+    }
+
+    /// Any date, past or future — future days are for planning ahead.
+    private func step(_ delta: Int) {
+        let next = store.shiftDay(dayKey, by: delta)
+        withAnimation(.easeOut(duration: 0.15)) {
+            selectedDay = next == store.todayKey ? nil : next
+        }
     }
 
     private var tabBar: some View {
@@ -96,7 +145,7 @@ struct RootView: View {
     }
 
     private var quipFooter: some View {
-        let entries = store.todayEntries
+        let entries = store.entries(on: dayKey)
         let done = entries.filter(\.done).count
         let quip: String
         if entries.isEmpty {
@@ -104,7 +153,7 @@ struct RootView: View {
         } else if done == entries.count {
             quip = "All \(entries.count) in the books. Nice work."
         } else {
-            quip = "\(done) in the books. Keep it rolling."
+            quip = "\(done) of \(entries.count) in the books. Keep it rolling."
         }
         return VStack(spacing: 0) {
             Rectangle().fill(Theme.divider).frame(height: 1)

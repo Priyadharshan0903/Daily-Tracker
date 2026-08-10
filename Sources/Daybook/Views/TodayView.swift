@@ -4,9 +4,9 @@ struct TodayView: View {
     @EnvironmentObject var store: Store
     @State private var draft = ""
     @State private var draftTag: String?
-    /// nil = the real today; set when browsing another day.
-    @State private var selectedDay: String?
-    @State private var showCalendar = false
+    /// Owned by RootView so the app header can drive the date. nil = the real today.
+    @Binding var selectedDay: String?
+    @Binding var showCalendar: Bool
 
     private var dayKey: String { selectedDay ?? store.todayKey }
     private var isToday: Bool { dayKey == store.todayKey }
@@ -19,11 +19,29 @@ struct TodayView: View {
 
     var body: some View {
         let dayEntries = store.entries(on: dayKey)
-        let carried = store.carriedOver(before: dayKey)
-        let done = dayEntries.filter(\.done).count
-
+        // Future days are planning space — don't clutter them with today's leftovers.
+        let carried = dayKey <= store.todayKey ? store.carriedOver(before: dayKey) : []
         VStack(alignment: .leading, spacing: 12) {
-            header(done: done, total: dayEntries.count)
+            if !isToday && !showCalendar {
+                Button {
+                    withAnimation(.easeOut(duration: 0.18)) { selectedDay = nil }
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "arrow.uturn.backward")
+                            .font(.system(size: 9, weight: .semibold))
+                        Text("Today")
+                            .font(.system(size: 11, weight: .semibold))
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .background(Capsule().fill(Theme.accent100))
+                    .foregroundColor(Theme.accent700)
+                    .contentShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .pointingCursor()
+                .help("Jump back to today")
+            }
 
             if showCalendar {
                 // Replaces the list while open so the popover doesn't balloon.
@@ -60,108 +78,59 @@ struct TodayView: View {
         .onTapGesture { store.dismissEditingToken += 1 }
     }
 
-    // MARK: - Header
-
-    private func header(done: Int, total: Int) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 6) {
-                stepButton("chevron.left", disabled: false) { step(-1) }
-
-                Button {
-                    withAnimation(.easeOut(duration: 0.18)) { showCalendar.toggle() }
-                } label: {
-                    HStack(spacing: 5) {
-                        Text(store.longLabel(forDayKey: dayKey))
-                            .font(.system(size: 15, weight: .semibold))
-                            .foregroundColor(Theme.text)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.8)
-                        Image(systemName: "chevron.down")
-                            .font(.system(size: 8, weight: .bold))
-                            .foregroundColor(Theme.neutral500)
-                            .rotationEffect(.degrees(showCalendar ? 180 : 0))
-                    }
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .pointingCursor()
-                .help(showCalendar ? "Close the date picker" : "Pick a date")
-
-                stepButton("chevron.right", disabled: isToday) { step(1) }
-
-                Spacer(minLength: 4)
-
-                Text("\(done) of \(total) done")
-                    .font(.system(size: 12))
-                    .foregroundColor(Theme.neutral600)
-                    .fixedSize()
-            }
-
-            if !isToday {
-                Button {
-                    withAnimation(.easeOut(duration: 0.18)) { selectedDay = nil }
-                } label: {
-                    Text("← Back to today")
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundColor(Theme.accent700)
-                }
-                .buttonStyle(.plain)
-                .pointingCursor()
-            }
-        }
-    }
-
-    private func stepButton(_ symbol: String, disabled: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Image(systemName: symbol)
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundColor(disabled ? Theme.neutral300 : Theme.neutral700)
-                .frame(width: 22, height: 22)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .disabled(disabled)
-        .pointingCursor(!disabled)
-    }
-
-    private func step(_ delta: Int) {
-        let next = store.shiftDay(dayKey, by: delta)
-        guard next <= store.todayKey else { return }
-        withAnimation(.easeOut(duration: 0.15)) {
-            selectedDay = next == store.todayKey ? nil : next
-        }
-    }
-
     // MARK: - Entries
 
     @ViewBuilder
     private func entriesSection(dayEntries: [Entry], carried: [Entry]) -> some View {
         if dayEntries.isEmpty && carried.isEmpty {
-            Text("Nothing logged yet. The first line is the hardest.")
-                .font(.system(size: 13.5))
-                .italic()
-                .foregroundColor(Theme.neutral500)
-                .padding(.vertical, 8)
-                .padding(.horizontal, 6)
+            emptyState
         } else {
-            FittedScrollView(maxHeight: 300) {
-                VStack(alignment: .leading, spacing: 2) {
-                    if !carried.isEmpty {
-                        sectionHeader("Carried over · \(carried.count) unfinished", color: Theme.orange700)
-                        ForEach(carried) { entry in
-                            EntryRow(entry: entry, originLabel: store.shortLabel(forDayKey: entry.day))
-                        }
-                        if !dayEntries.isEmpty {
-                            sectionHeader(isToday ? "Today" : store.shortLabel(forDayKey: dayKey),
-                                          color: Theme.neutral700)
-                        }
+            VStack(alignment: .leading, spacing: 2) {
+                if !carried.isEmpty {
+                    sectionHeader("Carried over · \(carried.count) unfinished", color: Theme.orange700)
+                    ForEach(carried) { entry in
+                        EntryRow(entry: entry, originLabel: store.shortLabel(forDayKey: entry.day))
                     }
-                    ForEach(dayEntries) { entry in
-                        EntryRow(entry: entry)
+                    if !dayEntries.isEmpty {
+                        sectionHeader(isToday ? "Today" : store.shortLabel(forDayKey: dayKey),
+                                      color: Theme.neutral700)
                     }
                 }
+                ForEach(dayEntries) { entry in
+                    EntryRow(entry: entry)
+                }
             }
+            // Breathing room so row highlights aren't flush against the clip edge.
+            .padding(.horizontal, 2)
+            .padding(.vertical, 3)
         }
+    }
+
+    /// Fills the leftover height so the mark sits centred in the card.
+    private var emptyState: some View {
+        VStack(spacing: 0) {
+            Spacer(minLength: 8)
+            VStack(spacing: 12) {
+                Image(nsImage: TrayIcon.largeMark)
+                    .renderingMode(.template)
+                    .resizable()
+                    .frame(width: 46, height: 46)
+                    .foregroundColor(Theme.neutral300)
+                VStack(spacing: 3) {
+                    Text(isToday ? "Nothing logged yet"
+                                 : "Nothing planned for \(store.shortLabel(forDayKey: dayKey))")
+                        .font(.system(size: 13.5, weight: .medium))
+                        .foregroundColor(Theme.neutral600)
+                    Text("The first line is the hardest.")
+                        .font(.system(size: 12))
+                        .italic()
+                        .foregroundColor(Theme.neutral500)
+                }
+            }
+            Spacer(minLength: 8)
+        }
+        // Roughly the space left under the input row, so the mark sits centred.
+        .frame(maxWidth: .infinity, minHeight: 215)
     }
 
     private func sectionHeader(_ text: String, color: Color) -> some View {
@@ -192,7 +161,9 @@ struct TodayView: View {
                     .contentShape(Capsule())
             }
             .buttonStyle(.plain)
+            .keyboardShortcut(.return, modifiers: .command)
             .pointingCursor()
+            .help("Add task (⌘↩)")
         }
         .padding(.leading, 14)
         .padding(4)

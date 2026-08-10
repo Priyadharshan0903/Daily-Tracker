@@ -68,7 +68,7 @@ struct CalendarPanel: View {
             .help("Jump to today")
 
             monthButton("chevron.left", disabled: false) { shiftMonth(-1) }
-            monthButton("chevron.right", disabled: atCurrentMonth) { shiftMonth(1) }
+            monthButton("chevron.right", disabled: false) { shiftMonth(1) }
         }
     }
 
@@ -118,7 +118,6 @@ struct CalendarPanel: View {
         let key = Store.dayFormatter.string(from: date)
         let isSelected = key == selectedDay
         let isToday = key == todayKey
-        let isFuture = key > todayKey
         let hasUnfinished = daysWithUnfinished.contains(key)
         let hasEntries = daysWithEntries.contains(key)
 
@@ -134,7 +133,7 @@ struct CalendarPanel: View {
                     }
                     Text("\(calendar.component(.day, from: date))")
                         .font(.system(size: 12, weight: isSelected || isToday ? .semibold : .regular))
-                        .foregroundColor(dayColor(isSelected: isSelected, isFuture: isFuture))
+                        .foregroundColor(isSelected ? .white : Theme.text)
                 }
                 .frame(width: markSize, height: markSize)
 
@@ -146,13 +145,7 @@ struct CalendarPanel: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .disabled(isFuture)
-        .pointingCursor(!isFuture)
-    }
-
-    private func dayColor(isSelected: Bool, isFuture: Bool) -> Color {
-        if isSelected { return .white }
-        return isFuture ? Theme.neutral300 : Theme.text
+        .pointingCursor()
     }
 
     private func dotColor(isSelected: Bool, hasUnfinished: Bool, hasEntries: Bool) -> Color {
@@ -207,12 +200,6 @@ struct CalendarPanel: View {
         }
         while cells.count % 7 != 0 { cells.append(nil) }
         return stride(from: 0, to: cells.count, by: 7).map { Array(cells[$0..<$0 + 7]) }
-    }
-
-    private var atCurrentMonth: Bool {
-        guard let today = Store.dayFormatter.date(from: todayKey),
-              let currentMonth = calendar.dateInterval(of: .month, for: today)?.start else { return true }
-        return monthAnchor >= currentMonth
     }
 
     private func shiftMonth(_ delta: Int) {

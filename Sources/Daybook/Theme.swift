@@ -32,8 +32,9 @@ enum Theme {
     static let neutral600 = Color(hex: 0x7D8798)
     static let neutral700 = Color(hex: 0x5F6878)
 
-    /// Save-confirmation green. Not in the design tokens — muted to sit with the blues.
-    static let success = Color(hex: 0x2E9E6B)
+    /// Save-confirmation green. Not in the design tokens — desaturated and pulled
+    /// toward teal so it reads as part of the cool blue palette, not a stock green.
+    static let success = Color(hex: 0x4F9E84)
 
     static let divider = Color(hex: 0x1D1D1F).opacity(0.1)
 
@@ -42,4 +43,9 @@ enum Theme {
     static let radiusLg: CGFloat = 16
 
     static let popoverWidth: CGFloat = 404
+
+    /// Fixed height of the tab content area. Every tab scrolls inside it, so the
+    /// popover is the same size on every tab and long pages can never overflow.
+    /// Comfortably fits the open date picker (~297).
+    static let contentHeight: CGFloat = 360
 }

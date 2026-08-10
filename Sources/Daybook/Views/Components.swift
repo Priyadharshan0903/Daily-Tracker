@@ -15,35 +15,6 @@ extension View {
     }
 }
 
-/// ScrollView that hugs its content height up to `maxHeight`, then scrolls.
-/// A plain ScrollView collapses to zero height inside the self-sizing
-/// MenuBarExtra window, hiding the content entirely.
-struct FittedScrollView<Content: View>: View {
-    let maxHeight: CGFloat
-    @ViewBuilder let content: () -> Content
-    @State private var contentHeight: CGFloat = 0
-
-    var body: some View {
-        ScrollView {
-            content()
-                .background(
-                    GeometryReader { geo in
-                        Color.clear.preference(key: ContentHeightKey.self, value: geo.size.height)
-                    }
-                )
-        }
-        .onPreferenceChange(ContentHeightKey.self) { contentHeight = $0 }
-        .frame(height: min(contentHeight, maxHeight))
-    }
-}
-
-private struct ContentHeightKey: PreferenceKey {
-    static var defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = max(value, nextValue())
-    }
-}
-
 /// Lays children out left-to-right, wrapping to a new line when the row is full.
 /// The popover is only 404pt wide, so a plain HStack of tag chips clips.
 struct FlowLayout: Layout {
@@ -200,12 +171,13 @@ struct EntryRow: View {
     /// Set on carried-over rows to show the day the task was originally logged.
     var originLabel: String? = nil
     @State private var hovering = false
-    @State private var hoveringDelete = false
     @State private var editing = false
     @State private var editText = ""
     @State private var pickingTag = false
-    @State private var justSaved = false
-    @FocusState private var editFocused: Bool
+    /// Save confirmation: a green outline that traces around the row and stops
+    /// where it started. The row's own background is left untouched.
+    @State private var traceProgress: CGFloat = 0
+    @State private var traceOpacity: Double = 0
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -213,22 +185,21 @@ struct EntryRow: View {
                 CheckToggle(done: entry.done) { store.toggle(entry.id) }
 
                 if editing {
-                    TextField("", text: $editText)
-                        .textFieldStyle(.plain)
-                        .font(.system(size: 14.5))
-                        .focused($editFocused)
-                        .onSubmit(commitEdit)
-                        .onExitCommand(perform: cancelEdit)
-                        // Clicking anywhere outside saves, the way inline rename works elsewhere on macOS.
-                        .onChange(of: editFocused) { focused in
-                            if !focused && editing { commitEdit() }
-                        }
+                    // Clicking away saves, the way inline rename works elsewhere on macOS.
+                    InlineTextField(text: $editText,
+                                    initialText: entry.text,
+                                    fontSize: 14.5,
+                                    onSubmit: commitEdit,
+                                    onCancel: cancelEdit,
+                                    onBlur: commitEdit)
+                        // 18pt is the field's exact intrinsic height; leave slack
+                        // for the field editor AppKit installs on focus.
+                        .frame(height: 21)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 3)
                         .background(RoundedRectangle(cornerRadius: 6).fill(Theme.surface))
                         .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Theme.accent.opacity(0.55)))
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .onAppear { editFocused = true }
                 } else {
                     Text(entry.text)
                         .font(.system(size: 14.5))
@@ -281,27 +252,16 @@ struct EntryRow: View {
                     .pointingCursor()
                     .help(entry.tag.isEmpty ? "Add a tag" : "Change tag")
 
-                    Button(action: beginEdit) {
-                        Image(systemName: "pencil")
-                            .font(.system(size: 11))
-                            .foregroundColor(Theme.neutral500)
-                    }
-                    .buttonStyle(.plain)
-                    .pointingCursor()
-                    .opacity(hovering ? 1 : 0)
-                    .help("Edit entry")
+                    RowIconButton(systemName: "square.and.pencil",
+                                  help: "Edit entry",
+                                  action: beginEdit)
 
-                    Button {
+                    RowIconButton(systemName: "xmark",
+                                  help: "Delete entry",
+                                  size: 11,
+                                  danger: true) {
                         store.remove(entry.id)
-                    } label: {
-                        Text("×")
-                            .font(.system(size: 16))
-                            .foregroundColor(hoveringDelete ? Theme.orange600 : Theme.neutral500)
                     }
-                    .buttonStyle(.plain)
-                    .onHover { hoveringDelete = $0 }
-                    .pointingCursor()
-                    .help("Delete entry")
                 }
             }
 
@@ -319,12 +279,18 @@ struct EntryRow: View {
         .padding(.horizontal, 6)
         .background(
             RoundedRectangle(cornerRadius: Theme.radiusMd)
-                .fill(justSaved ? Theme.success.opacity(0.16)
-                                : (hovering ? Theme.neutral200 : Color.clear))
+                // accent100, not neutral200 — the tag badge is neutral200 and
+                // vanished into a matching hover background.
+                .fill(hovering ? Theme.accent100 : Color.clear)
         )
         .overlay(
+            // Inset by half the line width — a centred stroke would spill outside
+            // the row's bounds and get clipped by the enclosing ScrollView.
             RoundedRectangle(cornerRadius: Theme.radiusMd)
-                .strokeBorder(justSaved ? Theme.success.opacity(0.45) : Color.clear)
+                .inset(by: 0.9)
+                .trim(from: 0, to: traceProgress)
+                .stroke(Theme.success.opacity(0.85), style: StrokeStyle(lineWidth: 1.5, lineCap: .round))
+                .opacity(traceOpacity)
         )
         .onHover { hovering = $0 }
         .onChange(of: store.dismissEditingToken) { _ in
@@ -343,6 +309,7 @@ struct EntryRow: View {
         editing = true
     }
 
+
     private func commitEdit() {
         guard editing else { return }
         editing = false
@@ -352,12 +319,16 @@ struct EntryRow: View {
         flashSaved()
     }
 
-    /// Brief green wash so a click-away save doesn't happen silently.
+    /// Green outline that draws itself around the row and finishes where it began.
     private func flashSaved() {
-        withAnimation(.easeOut(duration: 0.18)) { justSaved = true }
+        traceProgress = 0
+        traceOpacity = 1
+        withAnimation(.easeInOut(duration: 0.55)) { traceProgress = 1 }
         Task { @MainActor in
-            try? await Task.sleep(nanoseconds: 1_000_000_000)
-            withAnimation(.easeOut(duration: 0.5)) { justSaved = false }
+            try? await Task.sleep(nanoseconds: 600_000_000)
+            withAnimation(.easeOut(duration: 0.35)) { traceOpacity = 0 }
+            try? await Task.sleep(nanoseconds: 400_000_000)
+            traceProgress = 0
         }
     }
 
@@ -453,6 +424,35 @@ struct WeekEntryLine: View {
             }
         }
         .padding(.leading, 2)
+    }
+}
+
+/// Compact icon button for entry-row actions. The bare 11pt pencil read as a
+/// stray slash; a hit area with a hover chip makes it legible as a control.
+struct RowIconButton: View {
+    let systemName: String
+    let help: String
+    var size: CGFloat = 12
+    var danger: Bool = false
+    let action: () -> Void
+    @State private var hovering = false
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: systemName)
+                .font(.system(size: size, weight: .semibold))
+                .foregroundColor(hovering ? (danger ? Theme.orange600 : Theme.accent700) : Theme.neutral500)
+                .frame(width: 22, height: 22)
+                .background(
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(hovering ? (danger ? Theme.orange500.opacity(0.15) : Theme.accent200) : Color.clear)
+                )
+                .contentShape(RoundedRectangle(cornerRadius: 6))
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering = $0 }
+        .pointingCursor()
+        .help(help)
     }
 }
 

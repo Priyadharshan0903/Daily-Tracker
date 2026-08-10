@@ -25,15 +25,13 @@ struct WeekView: View {
 
             divider
 
-            FittedScrollView(maxHeight: 250) {
-                VStack(alignment: .leading, spacing: 12) {
-                    ForEach(week.days) { day in
-                        daySection(day)
-                    }
+            VStack(alignment: .leading, spacing: 12) {
+                ForEach(week.days) { day in
+                    daySection(day)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.vertical, 12)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.vertical, 12)
 
             divider
 

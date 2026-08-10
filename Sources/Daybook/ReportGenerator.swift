@@ -82,7 +82,7 @@ enum ReportGenerator {
         <body>
         <div class="page">
           <div class="toolbar no-print"><button class="btn" onclick="window.print()">Print / PDF</button></div>
-          <div class="kicker">Klenty · Engineering</div>
+          <div class="kicker">Workday · Engineering</div>
           <h1>Weekly Work Report</h1>
           <div class="meta">
             <span>Week of \(escape(week.label))</span>

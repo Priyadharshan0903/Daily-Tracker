@@ -9,6 +9,9 @@ enum TrayIcon {
     /// Same glyph, sized for the popover header beside the "Daybook" title.
     static let headerMark: NSImage = makeSunrise(pointSize: 20)
 
+    /// Large mark for the empty state.
+    static let largeMark: NSImage = makeSunrise(pointSize: 46)
+
     /// The design's artwork sits in a 16-unit viewBox but only spans x 2.2–13.8 and
     /// y 3.6–13.8, so drawing it as-is wastes a third of the canvas on padding and
     /// reads small next to other menu bar icons. Scale that bounding box to fill.
