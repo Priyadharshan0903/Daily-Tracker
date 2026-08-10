@@ -204,6 +204,7 @@ struct EntryRow: View {
     @State private var editing = false
     @State private var editText = ""
     @State private var pickingTag = false
+    @State private var justSaved = false
     @FocusState private var editFocused: Bool
 
     var body: some View {
@@ -316,8 +317,19 @@ struct EntryRow: View {
         }
         .padding(.vertical, 7)
         .padding(.horizontal, 6)
-        .background(RoundedRectangle(cornerRadius: Theme.radiusMd).fill(hovering ? Theme.neutral200 : Color.clear))
+        .background(
+            RoundedRectangle(cornerRadius: Theme.radiusMd)
+                .fill(justSaved ? Theme.success.opacity(0.16)
+                                : (hovering ? Theme.neutral200 : Color.clear))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: Theme.radiusMd)
+                .strokeBorder(justSaved ? Theme.success.opacity(0.45) : Color.clear)
+        )
         .onHover { hovering = $0 }
+        .onChange(of: store.dismissEditingToken) { _ in
+            if editing { commitEdit() }
+        }
     }
 
     private func pick(_ tag: String) {
@@ -334,7 +346,19 @@ struct EntryRow: View {
     private func commitEdit() {
         guard editing else { return }
         editing = false
-        store.updateEntryText(entry.id, text: editText)
+        let trimmed = editText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        store.updateEntryText(entry.id, text: trimmed)
+        flashSaved()
+    }
+
+    /// Brief green wash so a click-away save doesn't happen silently.
+    private func flashSaved() {
+        withAnimation(.easeOut(duration: 0.18)) { justSaved = true }
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 1_000_000_000)
+            withAnimation(.easeOut(duration: 0.5)) { justSaved = false }
+        }
     }
 
     /// Esc discards. Clearing `editing` first stops the focus-loss handler from saving.
@@ -413,6 +437,7 @@ struct WeekEntryLine: View {
             Text(entry.done ? "✓" : "○")
                 .font(.system(size: 12.5))
                 .foregroundColor(entry.done ? Theme.accent700 : Theme.neutral500)
+                .frame(width: 11, alignment: .leading)
             Text(entry.text)
                 .font(.system(size: 13.5))
                 .lineLimit(2)
@@ -428,6 +453,27 @@ struct WeekEntryLine: View {
             }
         }
         .padding(.leading, 2)
+    }
+}
+
+/// Radio dot used by the Settings tag list.
+struct RadioDot: View {
+    let selected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            ZStack {
+                Circle().strokeBorder(selected ? Theme.accent : Theme.neutral500, lineWidth: 1.5)
+                if selected {
+                    Circle().fill(Theme.accent).frame(width: 7, height: 7)
+                }
+            }
+            .frame(width: 14, height: 14)
+            .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .pointingCursor()
     }
 }
 

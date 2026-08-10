@@ -12,31 +12,40 @@ struct WeekView: View {
         let idx = min(weekIdx ?? starts.count - 1, starts.count - 1)
         let week = store.weekVM(startingAt: starts[max(idx, 0)])
 
-        VStack(alignment: .leading, spacing: 14) {
-            HStack {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 4) {
                 navButton(system: "chevron.left", disabled: idx <= 0) { weekIdx = idx - 1 }
-                Spacer()
+                Spacer(minLength: 0)
                 Text(week.label)
                     .font(.system(size: 15, weight: .semibold))
-                Spacer()
+                Spacer(minLength: 0)
                 navButton(system: "chevron.right", disabled: idx >= starts.count - 1) { weekIdx = idx + 1 }
             }
+            .padding(.bottom, 10)
+
+            divider
 
             FittedScrollView(maxHeight: 250) {
-                VStack(alignment: .leading, spacing: 11) {
+                VStack(alignment: .leading, spacing: 12) {
                     ForEach(week.days) { day in
                         daySection(day)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.vertical, 12)
             }
 
-            noteField(title: "Highlights", titleColor: Theme.neutral700,
-                      placeholder: "What went well this week?",
-                      text: notesBinding(week.id, \.highlights))
-            noteField(title: "Blockers", titleColor: Theme.orange700,
-                      placeholder: "Anything in the way?",
-                      text: notesBinding(week.id, \.blockers))
+            divider
+
+            VStack(alignment: .leading, spacing: 10) {
+                noteField(title: "Highlights", titleColor: Theme.neutral700,
+                          placeholder: "What went well this week?",
+                          text: notesBinding(week.id, \.highlights))
+                noteField(title: "Blockers", titleColor: Theme.orange700,
+                          placeholder: "Anything in the way?",
+                          text: notesBinding(week.id, \.blockers))
+            }
+            .padding(.top, 14)
 
             HStack(spacing: 8) {
                 SecondaryButton(title: "Download .json") { exportJSON(week: week) }
@@ -44,8 +53,13 @@ struct WeekView: View {
                     ReportGenerator.openReport(week: week, notes: store.notes(forWeek: week.id))
                 }
             }
+            .padding(.top, 14)
         }
         .padding(EdgeInsets(top: 12, leading: 18, bottom: 16, trailing: 18))
+    }
+
+    private var divider: some View {
+        Rectangle().fill(Theme.divider).frame(height: 1)
     }
 
     private func navButton(system: String, disabled: Bool, action: @escaping () -> Void) -> some View {
@@ -61,31 +75,45 @@ struct WeekView: View {
         .pointingCursor(!disabled)
     }
 
+    /// Empty days collapse to a single line — a lone "—" under every empty day
+    /// left the list full of orphaned dashes and dead space.
+    @ViewBuilder
     private func daySection(_ day: DayVM) -> some View {
-        VStack(alignment: .leading, spacing: 3) {
-            HStack(alignment: .firstTextBaseline) {
-                Text("\(day.dow.uppercased()) · \(day.dateLabel.uppercased())")
-                    .font(.system(size: 12))
-                    .kerning(0.9)
-                    .foregroundColor(Theme.neutral700)
-                    .lineLimit(1)
-                Spacer()
-                Text(day.entries.count == 1 ? "1 entry" : "\(day.entries.count) entries")
+        if day.entries.isEmpty {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                dayLabel(day, muted: true)
+                Spacer(minLength: 8)
+                Text("No entries")
                     .font(.system(size: 11.5))
-                    .foregroundColor(Theme.neutral500)
-            }
-            if day.entries.isEmpty {
-                Text("—")
-                    .font(.system(size: 13))
                     .italic()
                     .foregroundColor(Theme.neutral500)
-                    .padding(.leading, 2)
-            } else {
-                ForEach(day.entries) { entry in
-                    WeekEntryLine(entry: entry)
+                    .fixedSize()
+            }
+        } else {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    dayLabel(day, muted: false)
+                    Spacer(minLength: 8)
+                    Text(day.entries.count == 1 ? "1 entry" : "\(day.entries.count) entries")
+                        .font(.system(size: 11.5))
+                        .foregroundColor(Theme.neutral500)
+                        .fixedSize()
+                }
+                VStack(alignment: .leading, spacing: 4) {
+                    ForEach(day.entries) { entry in
+                        WeekEntryLine(entry: entry)
+                    }
                 }
             }
         }
+    }
+
+    private func dayLabel(_ day: DayVM, muted: Bool) -> some View {
+        Text("\(day.dow.uppercased()) · \(day.dateLabel.uppercased())")
+            .font(.system(size: 11.5, weight: .semibold))
+            .kerning(0.8)
+            .foregroundColor(muted ? Theme.neutral500 : Theme.neutral700)
+            .lineLimit(1)
     }
 
     private func noteField(title: String, titleColor: Color, placeholder: String, text: Binding<String>) -> some View {

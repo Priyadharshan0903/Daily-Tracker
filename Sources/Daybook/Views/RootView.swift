@@ -42,7 +42,11 @@ struct RootView: View {
 
     private var header: some View {
         HStack(spacing: 9) {
-            Circle().fill(Theme.accent).frame(width: 9, height: 9)
+            Image(nsImage: TrayIcon.headerMark)
+                .renderingMode(.template)
+                .resizable()
+                .frame(width: 20, height: 20)
+                .foregroundColor(Theme.accent)
             Text("Daybook")
                 .font(.system(size: 17, weight: .semibold))
             Spacer()
@@ -96,11 +100,11 @@ struct RootView: View {
         let done = entries.filter(\.done).count
         let quip: String
         if entries.isEmpty {
-            quip = "nothing in the books yet — add the first one."
+            quip = "Nothing in the books yet — add the first one."
         } else if done == entries.count {
-            quip = "all in the books. bear approves ʕ•ᴥ•ʔ"
+            quip = "All \(entries.count) in the books. Nice work."
         } else {
-            quip = "\(done) in the books. keep it rolling."
+            quip = "\(done) in the books. Keep it rolling."
         }
         return VStack(spacing: 0) {
             Rectangle().fill(Theme.divider).frame(height: 1)

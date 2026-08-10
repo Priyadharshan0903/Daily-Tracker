@@ -55,6 +55,9 @@ struct TodayView: View {
             }
         }
         .padding(EdgeInsets(top: 16, leading: 18, bottom: 14, trailing: 18))
+        .contentShape(Rectangle())
+        // Buttons and fields consume their own taps, so this only fires on blank space.
+        .onTapGesture { store.dismissEditingToken += 1 }
     }
 
     // MARK: - Header

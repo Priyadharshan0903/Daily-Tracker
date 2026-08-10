@@ -7,8 +7,17 @@ struct SettingsView: View {
     @State private var newTag = ""
 
     private let labelWidth: CGFloat = 112
+    private let fieldWidth: CGFloat = 132
+    /// Fixed slot so the delete × never shifts when "Save" appears.
+    private let actionWidth: CGFloat = 40
 
     var body: some View {
+        FittedScrollView(maxHeight: 430) {
+            content
+        }
+    }
+
+    private var content: some View {
         VStack(alignment: .leading, spacing: 0) {
             row("Daily reminder") {
                 HStack(spacing: 10) {
@@ -99,44 +108,35 @@ struct SettingsView: View {
 
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 6) {
-                    Button {
+                    RadioDot(selected: store.data.settings.defaultTag.isEmpty) {
                         store.data.settings.defaultTag = ""
-                    } label: {
-                        ZStack {
-                            Circle().strokeBorder(store.data.settings.defaultTag.isEmpty ? Theme.accent : Theme.neutral500,
-                                                  lineWidth: 1.5)
-                            if store.data.settings.defaultTag.isEmpty {
-                                Circle().fill(Theme.accent).frame(width: 7, height: 7)
-                            }
-                        }
-                        .frame(width: 14, height: 14)
-                        .contentShape(Circle())
                     }
-                    .buttonStyle(.plain)
-                    .pointingCursor()
                     .help("New tasks start with no tag")
+                    // Padded to line up with the text inside the fields below.
                     Text("No tag")
                         .font(.system(size: 12.5))
                         .foregroundColor(Theme.neutral600)
+                        .padding(.leading, 7)
+                        .frame(width: fieldWidth, alignment: .leading)
                 }
                 ForEach(store.data.settings.tags, id: \.self) { tag in
                     TagEditRow(tag: tag,
                                isDefault: tag == store.data.settings.defaultTag,
                                canDelete: store.data.settings.tags.count > 1,
+                               fieldWidth: fieldWidth,
+                               actionWidth: actionWidth,
                                onMakeDefault: { store.data.settings.defaultTag = tag },
                                onRename: { store.renameTag(tag, to: $0) },
                                onDelete: { store.deleteTag(tag) })
                 }
                 HStack(spacing: 6) {
-                    Circle()
-                        .strokeBorder(Color.clear, lineWidth: 1.5)
-                        .frame(width: 14, height: 14)
+                    Color.clear.frame(width: 14, height: 14)
                     PlaceholderField(placeholder: "New tag…", text: $newTag, size: 12.5, onSubmit: addTag)
                         .padding(.horizontal, 7)
                         .padding(.vertical, 4)
-                        .background(RoundedRectangle(cornerRadius: 6).fill(Color.white))
+                        .background(RoundedRectangle(cornerRadius: 6).fill(Theme.surface))
                         .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Theme.neutral300))
-                        .frame(width: 132)
+                        .frame(width: fieldWidth)
                     Button("Add", action: addTag)
                         .buttonStyle(.plain)
                         .font(.system(size: 12, weight: .semibold))
@@ -144,6 +144,7 @@ struct SettingsView: View {
                                          ? Theme.neutral500 : Theme.accent700)
                         .pointingCursor()
                         .disabled(newTag.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                        .frame(width: actionWidth, alignment: .leading)
                 }
             }
         }
@@ -232,18 +233,23 @@ private struct TagEditRow: View {
     let tag: String
     let isDefault: Bool
     let canDelete: Bool
+    let fieldWidth: CGFloat
+    let actionWidth: CGFloat
     let onMakeDefault: () -> Void
     let onRename: (String) -> Void
     let onDelete: () -> Void
     @State private var text: String
 
     init(tag: String, isDefault: Bool, canDelete: Bool,
+         fieldWidth: CGFloat, actionWidth: CGFloat,
          onMakeDefault: @escaping () -> Void,
          onRename: @escaping (String) -> Void,
          onDelete: @escaping () -> Void) {
         self.tag = tag
         self.isDefault = isDefault
         self.canDelete = canDelete
+        self.fieldWidth = fieldWidth
+        self.actionWidth = actionWidth
         self.onMakeDefault = onMakeDefault
         self.onRename = onRename
         self.onDelete = onDelete
@@ -252,33 +258,25 @@ private struct TagEditRow: View {
 
     var body: some View {
         HStack(spacing: 6) {
-            Button(action: onMakeDefault) {
-                ZStack {
-                    Circle().strokeBorder(isDefault ? Theme.accent : Theme.neutral500, lineWidth: 1.5)
-                    if isDefault {
-                        Circle().fill(Theme.accent).frame(width: 7, height: 7)
-                    }
-                }
-                .frame(width: 14, height: 14)
-                .contentShape(Circle())
-            }
-            .buttonStyle(.plain)
-            .pointingCursor()
-            .help("Use as default tag")
+            RadioDot(selected: isDefault, action: onMakeDefault)
+                .help("Use as default tag")
 
             TextField("", text: $text)
                 .textFieldStyle(.roundedBorder)
                 .font(.system(size: 12.5))
-                .frame(width: 132)
+                .frame(width: fieldWidth)
                 .onSubmit { onRename(text) }
 
-            if text.trimmingCharacters(in: .whitespacesAndNewlines) != tag {
-                Button("Save") { onRename(text) }
-                    .buttonStyle(.plain)
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundColor(Theme.accent700)
-                    .pointingCursor()
+            Group {
+                if text.trimmingCharacters(in: .whitespacesAndNewlines) != tag {
+                    Button("Save") { onRename(text) }
+                        .buttonStyle(.plain)
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(Theme.accent700)
+                        .pointingCursor()
+                }
             }
+            .frame(width: actionWidth, alignment: .leading)
 
             Button(action: onDelete) {
                 Image(systemName: "xmark")

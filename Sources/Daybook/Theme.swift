@@ -32,6 +32,9 @@ enum Theme {
     static let neutral600 = Color(hex: 0x7D8798)
     static let neutral700 = Color(hex: 0x5F6878)
 
+    /// Save-confirmation green. Not in the design tokens — muted to sit with the blues.
+    static let success = Color(hex: 0x2E9E6B)
+
     static let divider = Color(hex: 0x1D1D1F).opacity(0.1)
 
     static let radiusSm: CGFloat = 6
