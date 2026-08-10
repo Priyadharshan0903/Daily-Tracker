@@ -36,6 +36,7 @@ struct InlineTextField: NSViewRepresentable {
         field.textColor = NSColor(Theme.text)
         field.stringValue = initialText
         context.coordinator.takeFocus(field)
+        context.coordinator.watchForCommandReturn(on: field)
         return field
     }
 
@@ -46,13 +47,21 @@ struct InlineTextField: NSViewRepresentable {
         context.coordinator.parent = self
     }
 
+    static func dismantleNSView(_ nsView: NSTextField, coordinator: Coordinator) {
+        coordinator.stopWatching()
+    }
+
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
     final class Coordinator: NSObject, NSTextFieldDelegate {
         var parent: InlineTextField
         private var cancelled = false
+        private weak var field: NSTextField?
+        private var keyMonitor: Any?
 
         init(_ parent: InlineTextField) { self.parent = parent }
+
+        deinit { stopWatching() }
 
         /// The field has no window until it is installed in the hierarchy, so
         /// retry across runloop turns until it does.
@@ -70,6 +79,36 @@ struct InlineTextField: NSViewRepresentable {
                     editor.selectedRange = NSRange(location: end, length: 0)
                 }
             }
+        }
+
+        /// ⌘↩ is not in AppKit's standard key bindings, so it never arrives as an
+        /// `insertNewline:` command. A local monitor sees the key press before the
+        /// responder chain and before SwiftUI's own ⌘↩ shortcut on the Add button,
+        /// so the edit is saved instead of a stray add being triggered.
+        func watchForCommandReturn(on field: NSTextField) {
+            self.field = field
+            keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+                guard let self,
+                      let field = self.field,
+                      field.currentEditor() != nil else { return event }
+
+                let isReturn = event.keyCode == 36 || event.keyCode == 76  // Return, keypad Enter
+                let isCommand = event.modifierFlags
+                    .intersection(.deviceIndependentFlagsMask)
+                    .contains(.command)
+                guard isReturn, isCommand else { return event }
+
+                self.parent.onSubmit()
+                return nil  // consume, so nothing else reacts to it
+            }
+        }
+
+        func stopWatching() {
+            if let keyMonitor {
+                NSEvent.removeMonitor(keyMonitor)
+            }
+            keyMonitor = nil
+            field = nil
         }
 
         func controlTextDidChange(_ notification: Notification) {

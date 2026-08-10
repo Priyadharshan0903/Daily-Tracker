@@ -225,7 +225,7 @@ struct EntryRow: View {
                     }
                     .buttonStyle(.plain)
                     .pointingCursor()
-                    .help("Save (or press Return)")
+                    .help("Save (Return or ⌘↩)")
                 } else {
                     if let originLabel {
                         Text(originLabel)
