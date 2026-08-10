@@ -12,10 +12,6 @@ final class Store: ObservableObject {
         }
     }
 
-    /// Bumped when the user clicks away from an editing row. Rows watch this and
-    /// commit — clicking blank space in a popover doesn't always resign focus.
-    @Published var dismissEditingToken = 0
-
     private var saveTask: Task<Void, Never>?
 
     init() {

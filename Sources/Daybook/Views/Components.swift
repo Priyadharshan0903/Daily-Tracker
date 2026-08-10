@@ -293,9 +293,6 @@ struct EntryRow: View {
                 .opacity(traceOpacity)
         )
         .onHover { hovering = $0 }
-        .onChange(of: store.dismissEditingToken) { _ in
-            if editing { commitEdit() }
-        }
     }
 
     private func pick(_ tag: String) {
