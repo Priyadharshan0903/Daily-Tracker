@@ -1,46 +1,188 @@
 # Daybook
 
-A tiny native macOS menu bar app for logging what you did each day — built from the
-"Tray Tracker" Claude Design mock. Swift + SwiftUI, no dependencies, ~800 KB bundle.
+A native macOS menu bar app for keeping track of what you did — and what you're going to do.
+
+Swift + SwiftUI, no third-party dependencies, ~2.7 MB, builds without Xcode.
+
+---
+
+## About
+
+Most of us can't answer "what did you actually do last week?" without scrolling back through
+Git history, Slack and a calendar. Not because the work didn't happen, but because nothing
+recorded it while it was happening. Daybook exists to close that gap.
+
+It's a **work log first, planner second**. You keep it in the menu bar, jot a line whenever
+something ships, and at the end of the week you have an honest record — ready for your standup,
+your 1:1, your weekly report, or the performance review six months from now when you genuinely
+cannot remember what February looked like.
+
+Three ideas shape it:
+
+**Logging has to be nearly free.** If capturing a task takes more than a couple of seconds you
+won't do it, and a journal you don't write is worthless. The popover opens from the menu bar,
+the input is focused and waiting, and Return files it.
+
+**Nothing gets rewritten behind your back.** Unfinished work follows you to the next day, but
+it keeps the date you started it — so the weekly report says when things really began. The
+record stays truthful, which is the whole point of keeping one.
+
+**It's yours and it stays here.** No account, no sync, no telemetry. One JSON file on your Mac
+that you can read, back up, or delete.
+
+Workspaces let you keep separate books — day job in one, career growth or a side project in
+another — each with its own entries, tags and weekly notes.
+
+---
 
 ## Features
 
-- Lives in the menu bar (checkmark icon, no Dock icon) — click to open the popover
-- **Today** — quick-add tasks (Enter or the Add pill), file them under a tag,
-  check them off, delete on hover
-- **This Week** — per-day log with prev/next week navigation, Highlights & Blockers
-  notes, JSON export, and a printable weekly report (opens styled HTML in your browser)
-- **Settings** — daily reminder notification, week start (Mon/Sun), launch at login,
-  default tag
-- All data stays local: `~/Library/Application Support/Daybook/daybook.json`
+**Today**
+- Quick-add with Return or ⌘↩; tag as you type, or leave it untagged and file it later
+- Tick off, edit in place, re-tag, delete
+- **Carried over** — unfinished work from earlier days surfaces automatically, labelled with
+  the day it started
+- Completed tasks fold into a collapsible "N done" group so live work stays on top
+- Filter the list by tag
+- Reorder by dragging the grip, or with ⌘↑ / ⌘↓
+- Move to any date with the arrows or a built-in calendar — including **future days**, so you
+  can plan ahead
 
-## Build & run
+**This Week**
+- Every day of the week on a timeline, with dots marking activity and today's position
+- Tick tasks off while you review
+- Highlights and Blockers notes, kept per week
+- Export a week as JSON, or open a printable HTML report
 
-Requires only the Swift toolchain (Command Line Tools — no Xcode needed).
+**Settings**
+- Daily reminder at a time you choose
+- Week starts Monday or Sunday
+- Text size, 85%–130%, applied across the whole app
+- Launch at login
+- Workspaces: create, rename, delete, and pick an emoji avatar
+- Per-workspace tags, and which tag new tasks get
+- Export / import all data
+
+---
+
+## Keyboard
+
+| Shortcut | Action |
+| --- | --- |
+| `Return` | Add the task you've typed |
+| `⌘↩` | Add from anywhere in the popover |
+| `↑` / `↓` | Move through tasks |
+| `Space` | Tick the selected task |
+| `⌘⌫` | Delete the selected task |
+| `⌘↑` / `⌘↓` | Reorder the selected task |
+| `Esc` | Clear the selection, or discard an edit in progress |
+
+While editing a task: `Return` or `⌘↩` saves, `Esc` discards, and clicking away saves.
+
+---
+
+## Install
+
+Requires macOS 13 or later and the Swift toolchain (Command Line Tools is enough — no Xcode).
 
 ```bash
-bash Scripts/build-app.sh   # builds dist/Daybook.app (release, ad-hoc signed)
+bash Scripts/build-app.sh     # → dist/Daybook.app, release, ad-hoc signed
 open dist/Daybook.app
 ```
 
-For development, `swift run Daybook` also works, but notifications and
-launch-at-login need the real `.app` bundle.
+To keep it: drag `dist/Daybook.app` to `/Applications` and turn on **Launch at login** in
+Settings.
 
-To keep it around, copy `dist/Daybook.app` to `/Applications` and enable
-"Launch at login" in Settings.
+`swift run Daybook` works for development, but notifications and launch-at-login need the real
+`.app` bundle.
+
+The app icon is generated from the same drawing as the menu bar glyph. Regenerate after changing
+it:
+
+```bash
+swift Scripts/make-icon.swift   # → Resources/Daybook.icns
+```
+
+> **Sharing it:** the build is ad-hoc signed, so on someone else's Mac Gatekeeper will refuse to
+> open it. Distributing properly needs a Developer ID and notarisation.
+
+---
+
+## Your data
+
+Everything lives in one file:
+
+```
+~/Library/Application Support/Daybook/daybook.json
+```
+
+Plain JSON, pretty-printed, written atomically a moment after each change. **Settings → Export…**
+writes a copy anywhere you like; **Import…** replaces everything after a confirmation. Older
+file formats are migrated on launch.
+
+---
 
 ## Project layout
 
 ```
 Sources/Daybook/
-  DaybookApp.swift     # @main — MenuBarExtra (window style)
-  Models.swift         # Entry / Settings / week view models + JSON export shape
-  Store.swift          # observable state + debounced JSON persistence
-  Theme.swift          # design tokens from the mock
-  Views/               # RootView (tabs + quip footer), Today, Week, Settings, components
-  ReportGenerator.swift# weekly report → self-contained HTML in the browser
-  Reminders.swift      # daily notification via UserNotifications
-  LaunchAtLogin.swift  # SMAppService
-Scripts/build-app.sh   # SwiftPM build → assemble .app → ad-hoc codesign
-Resources/Info.plist   # LSUIElement (menu-bar-only), bundle id com.priyadharshan.daybook
+  DaybookApp.swift          @main — MenuBarExtra, pins the light appearance
+  Models.swift              Entry, Workspace, AppSettings, migration, export shapes
+  Store.swift               observable state, workspace scoping, persistence, date handling
+  Theme.swift               design tokens and the text-scale helpers
+  TrayIcon.swift            the sunrise mark, drawn in code for menu bar / header / icon
+  ReportGenerator.swift     a week → self-contained HTML report
+  Reminders.swift           daily notification (UserNotifications)
+  LaunchAtLogin.swift       SMAppService
+  Views/
+    RootView.swift          header, tabs, footer, workspace switcher
+    TodayView.swift         the day's list, filters, keyboard navigation
+    WeekView.swift          week timeline, notes, export
+    SettingsView.swift      grouped settings sections
+    CalendarPanel.swift     custom month grid
+    EntryRow.swift          one task: check, edit, tag, delete, drag
+    WorkspaceSwitcher.swift avatars, switcher, avatar picker
+    ReorderController.swift in-window drag reordering
+    InlineTextField.swift   NSTextField wrapper for inline editing
+    NotesTextView.swift     NSTextView wrapper for the week notes
+    Components.swift        shared controls — chips, toggles, layout helpers
+Scripts/
+  build-app.sh              SwiftPM build → assemble .app → ad-hoc codesign
+  make-icon.swift           renders Resources/Daybook.icns
+Resources/
+  Info.plist                LSUIElement (menu-bar-only), bundle id, icon
+  Daybook.icns              generated app icon
 ```
+
+Roughly 3,800 lines of Swift.
+
+---
+
+## Notes for anyone working on it
+
+A few decisions that look odd until you know why:
+
+- **The app pins itself to the light appearance.** The design tokens are a hardcoded light
+  theme, and AppKit controls follow the system appearance — under Dark Mode they drew white text
+  on our white surfaces, which is invisible. There is no dark theme yet; that's the honest
+  reason.
+- **Text fields are AppKit, not SwiftUI.** SwiftUI gives no hook at the moment a field takes
+  focus, so removing AppKit's automatic select-all meant waiting a frame, which visibly flashed.
+  Owning `NSTextField` lets focus and caret placement happen in one pass.
+- **Drag reordering is hand-rolled.** `.draggable` / `.dropDestination` begin a *system* drag
+  session, which makes the menu bar panel resign key — dismissing the popover and cancelling the
+  drag. `ReorderController` tracks the drag inside the window instead.
+- **No SwiftUI tap gesture spans the task list.** Inside a `ScrollView` a tap gesture wins the
+  click over AppKit-backed text fields, which made the add-task field unfocusable.
+- **`todayKey` is stored, not computed.** A computed value is correct whenever it's read, but
+  reading it never tells SwiftUI to re-render, so the date went stale at midnight. It's now
+  refreshed from calendar-day, timezone and wake notifications.
+- **Font sizes go through `Theme.font(_:)`** so the text-size setting can scale all of them.
+
+### Known gaps
+
+- No tests.
+- No undo — deleting a task or a workspace is immediate and permanent.
+- One data file with no rolling backups; export is manual.
+- No search, which will start to hurt after a few hundred entries.
+- No dark mode.
