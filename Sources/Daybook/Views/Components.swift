@@ -408,6 +408,7 @@ struct WeekEntryLine: View {
                 .frame(width: 11, alignment: .leading)
             Text(entry.text)
                 .font(.system(size: 13.5))
+                .lineSpacing(1.5)
                 .lineLimit(2)
                 .truncationMode(.tail)
                 .frame(maxWidth: .infinity, alignment: .leading)

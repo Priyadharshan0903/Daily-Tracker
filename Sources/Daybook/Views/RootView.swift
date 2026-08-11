@@ -49,6 +49,9 @@ struct RootView: View {
             quipFooter
         }
         .frame(width: Theme.popoverWidth)
+        // The date must be right the moment the popover is shown, whatever
+        // happened while it was closed.
+        .onAppear { store.refreshToday() }
         .background(Theme.surface)
         .foregroundColor(Theme.text)
         .tint(Theme.accent)

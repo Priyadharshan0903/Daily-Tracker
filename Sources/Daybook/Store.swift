@@ -1,5 +1,6 @@
-import Foundation
+import AppKit
 import Combine
+import Foundation
 
 @MainActor
 final class Store: ObservableObject {
@@ -12,11 +13,41 @@ final class Store: ObservableObject {
         }
     }
 
+    /// Stored rather than computed from `Date()`: a computed value is always
+    /// correct when read, but reading it never tells SwiftUI to re-render, so the
+    /// popover kept showing yesterday's date after midnight.
+    @Published private(set) var todayKey: String
+
     private var saveTask: Task<Void, Never>?
 
     init() {
         data = Store.load()
+        todayKey = Store.dayFormatter.string(from: Date())
         Reminders.sync(settings: data.settings)
+        observeSystemDateChanges()
+    }
+
+    // MARK: - Following the system clock
+
+    /// Recomputes the current day. Assigns only on a real change so we don't
+    /// trigger redundant renders.
+    func refreshToday() {
+        let key = dayKey(for: Date())
+        if key != todayKey { todayKey = key }
+    }
+
+    private func observeSystemDateChanges() {
+        let refresh: @Sendable (Notification) -> Void = { [weak self] _ in
+            Task { @MainActor in self?.refreshToday() }
+        }
+        // Posted from arbitrary threads, hence the hop to the main actor above.
+        for name: Notification.Name in [.NSCalendarDayChanged, .NSSystemTimeZoneDidChange] {
+            NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main, using: refresh)
+        }
+        // Insurance for a Mac that slept through midnight.
+        NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didWakeNotification, object: nil, queue: .main, using: refresh
+        )
     }
 
     // MARK: - Persistence
@@ -70,37 +101,27 @@ final class Store: ObservableObject {
 
     var calendar: Calendar {
         var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = .autoupdatingCurrent
         cal.firstWeekday = data.settings.weekStart.firstWeekday
         return cal
     }
 
-    static let dayFormatter: DateFormatter = {
+    /// `autoupdatingCurrent` tracks a live timezone change (travel, DST); the
+    /// implicit default is a snapshot taken when the formatter is created.
+    /// The POSIX locale is deliberate and must stay — `dayFormatter` produces the
+    /// "yyyy-MM-dd" keys entries are stored under, so it has to be locale-stable.
+    private static func formatter(_ format: String) -> DateFormatter {
         let df = DateFormatter()
         df.locale = Locale(identifier: "en_US_POSIX")
-        df.dateFormat = "yyyy-MM-dd"
+        df.timeZone = .autoupdatingCurrent
+        df.dateFormat = format
         return df
-    }()
+    }
 
-    static let dowFormatter: DateFormatter = {
-        let df = DateFormatter()
-        df.locale = Locale(identifier: "en_US_POSIX")
-        df.dateFormat = "EEEE"
-        return df
-    }()
-
-    static let monthDayFormatter: DateFormatter = {
-        let df = DateFormatter()
-        df.locale = Locale(identifier: "en_US_POSIX")
-        df.dateFormat = "MMM d"
-        return df
-    }()
-
-    static let fullDateFormatter: DateFormatter = {
-        let df = DateFormatter()
-        df.locale = Locale(identifier: "en_US_POSIX")
-        df.dateFormat = "EEEE, MMMM d"
-        return df
-    }()
+    static let dayFormatter = formatter("yyyy-MM-dd")
+    static let dowFormatter = formatter("EEEE")
+    static let monthDayFormatter = formatter("MMM d")
+    static let fullDateFormatter = formatter("EEEE, MMMM d")
 
     func dayKey(for date: Date) -> String { Store.dayFormatter.string(from: date) }
 
@@ -129,13 +150,6 @@ final class Store: ObservableObject {
     }
 
     // MARK: - Today
-
-    var todayKey: String { dayKey(for: Date()) }
-
-    var todayLabel: String {
-        let now = Date()
-        return "\(Store.dowFormatter.string(from: now)), \(Store.monthDayFormatter.string(from: now))"
-    }
 
     var todayEntries: [Entry] {
         entries(on: todayKey)

@@ -36,7 +36,7 @@ struct InlineTextField: NSViewRepresentable {
         field.textColor = NSColor(Theme.text)
         field.stringValue = initialText
         context.coordinator.takeFocus(field)
-        context.coordinator.watchForCommandReturn(on: field)
+        context.coordinator.startWatching(field)
         return field
     }
 
@@ -58,6 +58,8 @@ struct InlineTextField: NSViewRepresentable {
         private var cancelled = false
         private weak var field: NSTextField?
         private var keyMonitor: Any?
+        private var mouseMonitor: Any?
+        private var resignObserver: NSObjectProtocol?
 
         init(_ parent: InlineTextField) { self.parent = parent }
 
@@ -81,12 +83,18 @@ struct InlineTextField: NSViewRepresentable {
             }
         }
 
+        func startWatching(_ field: NSTextField) {
+            self.field = field
+            watchForCommandReturn()
+            watchForClickAway()
+            watchForWindowResign()
+        }
+
         /// ⌘↩ is not in AppKit's standard key bindings, so it never arrives as an
         /// `insertNewline:` command. A local monitor sees the key press before the
         /// responder chain and before SwiftUI's own ⌘↩ shortcut on the Add button,
         /// so the edit is saved instead of a stray add being triggered.
-        func watchForCommandReturn(on field: NSTextField) {
-            self.field = field
+        private func watchForCommandReturn() {
             keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
                 guard let self,
                       let field = self.field,
@@ -103,11 +111,51 @@ struct InlineTextField: NSViewRepresentable {
             }
         }
 
+        /// `controlTextDidEndEditing` only fires when focus actually moves to another
+        /// control — clicking blank space in the popover doesn't resign first
+        /// responder, so an edit sat there unsaved. This watches mouse-downs and
+        /// commits when one lands outside the field. It deliberately returns the
+        /// event untouched: consuming it is what previously made the task field
+        /// unclickable.
+        private func watchForClickAway() {
+            mouseMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] event in
+                guard let self,
+                      let field = self.field,
+                      field.currentEditor() != nil else { return event }
+
+                if event.window === field.window {
+                    let point = field.convert(event.locationInWindow, from: nil)
+                    // Generous inset so the field's own padded box counts as inside.
+                    if field.bounds.insetBy(dx: -8, dy: -6).contains(point) { return event }
+                }
+
+                // Commit after the click is delivered, so the field isn't torn
+                // down in the middle of event handling.
+                DispatchQueue.main.async { [weak self] in self?.parent.onBlur() }
+                return event
+            }
+        }
+
+        /// Dismissing the popover mid-edit would otherwise lose the change — that
+        /// click happens outside the app, so the mouse monitor never sees it.
+        private func watchForWindowResign() {
+            resignObserver = NotificationCenter.default.addObserver(
+                forName: NSWindow.didResignKeyNotification, object: nil, queue: .main
+            ) { [weak self] _ in
+                DispatchQueue.main.async { [weak self] in self?.parent.onBlur() }
+            }
+        }
+
         func stopWatching() {
-            if let keyMonitor {
-                NSEvent.removeMonitor(keyMonitor)
+            for monitor in [keyMonitor, mouseMonitor].compactMap({ $0 }) {
+                NSEvent.removeMonitor(monitor)
+            }
+            if let resignObserver {
+                NotificationCenter.default.removeObserver(resignObserver)
             }
             keyMonitor = nil
+            mouseMonitor = nil
+            resignObserver = nil
             field = nil
         }
 

@@ -25,13 +25,17 @@ struct WeekView: View {
 
             divider
 
-            VStack(alignment: .leading, spacing: 12) {
-                ForEach(week.days) { day in
-                    daySection(day)
+            // spacing 0 — each day carries its own bottom padding so the timeline
+            // rail runs unbroken from one day's dot to the next.
+            VStack(alignment: .leading, spacing: 0) {
+                ForEach(Array(week.days.enumerated()), id: \.element.id) { index, day in
+                    daySection(day,
+                               isFirst: index == 0,
+                               isLast: index == week.days.count - 1)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.vertical, 12)
+            .padding(.vertical, 14)
 
             divider
 
@@ -75,35 +79,67 @@ struct WeekView: View {
 
     /// Empty days collapse to a single line — a lone "—" under every empty day
     /// left the list full of orphaned dashes and dead space.
-    @ViewBuilder
-    private func daySection(_ day: DayVM) -> some View {
-        if day.entries.isEmpty {
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                dayLabel(day, muted: true)
-                Spacer(minLength: 8)
-                Text("No entries")
-                    .font(.system(size: 11.5))
-                    .italic()
-                    .foregroundColor(Theme.neutral500)
-                    .fixedSize()
-            }
-        } else {
-            VStack(alignment: .leading, spacing: 6) {
+    private func daySection(_ day: DayVM, isFirst: Bool, isLast: Bool) -> some View {
+        let isEmpty = day.entries.isEmpty
+
+        return HStack(alignment: .top, spacing: 10) {
+            timelineRail(isFirst: isFirst,
+                         isLast: isLast,
+                         hasEntries: !isEmpty,
+                         isToday: day.key == store.todayKey)
+
+            VStack(alignment: .leading, spacing: 7) {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    dayLabel(day, muted: false)
+                    dayLabel(day, muted: isEmpty)
                     Spacer(minLength: 8)
-                    Text(day.entries.count == 1 ? "1 entry" : "\(day.entries.count) entries")
+                    dayCount(day)
                         .font(.system(size: 11.5))
                         .foregroundColor(Theme.neutral500)
                         .fixedSize()
                 }
-                VStack(alignment: .leading, spacing: 4) {
-                    ForEach(day.entries) { entry in
-                        WeekEntryLine(entry: entry)
+                if !isEmpty {
+                    VStack(alignment: .leading, spacing: 6) {
+                        ForEach(day.entries) { entry in
+                            WeekEntryLine(entry: entry)
+                        }
                     }
                 }
             }
+            .padding(.bottom, isLast ? 0 : 16)
         }
+    }
+
+    private func dayCount(_ day: DayVM) -> Text {
+        if day.entries.isEmpty { return Text("No entries").italic() }
+        return Text(day.entries.count == 1 ? "1 entry" : "\(day.entries.count) entries")
+    }
+
+    /// Dot for the day, joined to its neighbours by a hairline so the week reads
+    /// as one continuous thread.
+    private func timelineRail(isFirst: Bool, isLast: Bool, hasEntries: Bool, isToday: Bool) -> some View {
+        VStack(spacing: 0) {
+            // 1pt stub keeps the dot's centre aligned with the day label,
+            // and continues the line coming down from the previous day.
+            Rectangle()
+                .fill(isFirst ? Color.clear : Theme.neutral300)
+                .frame(width: 1, height: 1)
+
+            ZStack {
+                if isToday {
+                    Circle().fill(Theme.accent200)
+                }
+                Circle()
+                    .fill(hasEntries ? Theme.accent : Theme.neutral300)
+                    .frame(width: 7, height: 7)
+            }
+            .frame(width: 13, height: 13)
+
+            Rectangle()
+                .fill(isLast ? Color.clear : Theme.neutral300)
+                .frame(width: 1)
+                .frame(maxHeight: .infinity)
+        }
+        .frame(width: 13)
     }
 
     private func dayLabel(_ day: DayVM, muted: Bool) -> some View {
