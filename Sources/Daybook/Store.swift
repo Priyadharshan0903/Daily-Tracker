@@ -199,6 +199,34 @@ final class Store: ObservableObject {
         data.entries[i].text = trimmed
     }
 
+    /// Reorders by moving the dragged entry next to the target. Order is the
+    /// array's own order — `entries(on:)` filters while preserving it — so this
+    /// needs no extra field on `Entry` and no migration.
+    func moveEntry(_ id: UUID, onto targetID: UUID) {
+        guard id != targetID,
+              let from = data.entries.firstIndex(where: { $0.id == id }) else { return }
+        let item = data.entries.remove(at: from)
+        guard let to = data.entries.firstIndex(where: { $0.id == targetID }) else {
+            data.entries.insert(item, at: min(from, data.entries.count))
+            return
+        }
+        // Dragging down lands after the target, dragging up lands before it.
+        data.entries.insert(item, at: from <= to ? to + 1 : to)
+    }
+
+    /// Moves an entry one place within its own day and completion group, so a
+    /// keyboard reorder can't jump it into a different section of the list.
+    func moveEntry(_ id: UUID, by offset: Int) {
+        guard let index = data.entries.firstIndex(where: { $0.id == id }) else { return }
+        let entry = data.entries[index]
+        let siblings = data.entries.indices.filter {
+            data.entries[$0].day == entry.day && data.entries[$0].done == entry.done
+        }
+        guard let position = siblings.firstIndex(of: index),
+              siblings.indices.contains(position + offset) else { return }
+        data.entries.swapAt(index, siblings[position + offset])
+    }
+
     func setEntryTag(_ id: UUID, tag: String) {
         guard let i = data.entries.firstIndex(where: { $0.id == id }) else { return }
         data.entries[i].tag = tag

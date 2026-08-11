@@ -10,6 +10,7 @@ rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp .build/release/Daybook "$APP/Contents/MacOS/Daybook"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
+cp Resources/Daybook.icns "$APP/Contents/Resources/Daybook.icns"
 
 codesign --force --sign - "$APP"
 

@@ -21,6 +21,7 @@ enum Theme {
     static let accent600 = Color(hex: 0x2D569A)
     static let accent700 = Color(hex: 0x24437C)
 
+    static let orange400 = Color(hex: 0xF5B03F)
     static let orange500 = Color(hex: 0xF2970F)
     static let orange600 = Color(hex: 0xCF7D05)
     static let orange700 = Color(hex: 0xA56203)

@@ -59,11 +59,10 @@ struct RootView: View {
 
     private var header: some View {
         HStack(spacing: 9) {
+            // Full colour, so keep the template rendering off.
             Image(nsImage: TrayIcon.headerMark)
-                .renderingMode(.template)
                 .resizable()
                 .frame(width: 20, height: 20)
-                .foregroundColor(Theme.accent)
             Text("Daybook")
                 .font(.system(size: 17, weight: .semibold))
                 .fixedSize()

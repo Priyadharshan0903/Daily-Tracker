@@ -69,7 +69,11 @@ struct PlaceholderField: View {
     let placeholder: String
     @Binding var text: String
     var size: CGFloat = 14
+    /// Optional mirror of the field's focus, for callers that reveal UI only
+    /// while the field is being used.
+    var isFocused: Binding<Bool>? = nil
     var onSubmit: () -> Void = {}
+    @FocusState private var focused: Bool
 
     var body: some View {
         ZStack(alignment: .leading) {
@@ -82,8 +86,10 @@ struct PlaceholderField: View {
             TextField("", text: $text)
                 .textFieldStyle(.plain)
                 .font(.system(size: size))
+                .focused($focused)
                 .onSubmit(onSubmit)
         }
+        .onChange(of: focused) { isFocused?.wrappedValue = $0 }
     }
 }
 
@@ -164,177 +170,6 @@ struct CheckToggle: View {
     }
 }
 
-/// Interactive entry row for the Today view — check off, inline-edit text, re-file tag, delete.
-struct EntryRow: View {
-    @EnvironmentObject var store: Store
-    let entry: Entry
-    /// Set on carried-over rows to show the day the task was originally logged.
-    var originLabel: String? = nil
-    @State private var hovering = false
-    @State private var editing = false
-    @State private var editText = ""
-    @State private var pickingTag = false
-    /// Save confirmation: a green outline that traces around the row and stops
-    /// where it started. The row's own background is left untouched.
-    @State private var traceProgress: CGFloat = 0
-    @State private var traceOpacity: Double = 0
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 10) {
-                CheckToggle(done: entry.done) { store.toggle(entry.id) }
-
-                if editing {
-                    // Clicking away saves, the way inline rename works elsewhere on macOS.
-                    InlineTextField(text: $editText,
-                                    initialText: entry.text,
-                                    fontSize: 14.5,
-                                    onSubmit: commitEdit,
-                                    onCancel: cancelEdit,
-                                    onBlur: commitEdit)
-                        // 18pt is the field's exact intrinsic height; leave slack
-                        // for the field editor AppKit installs on focus.
-                        .frame(height: 21)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 3)
-                        .background(RoundedRectangle(cornerRadius: 6).fill(Theme.surface))
-                        .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Theme.accent.opacity(0.55)))
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                } else {
-                    Text(entry.text)
-                        .font(.system(size: 14.5))
-                        .strikethrough(entry.done)
-                        .foregroundColor(entry.done ? Theme.neutral600 : Theme.text)
-                        .lineLimit(2)
-                        .truncationMode(.tail)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .contentShape(Rectangle())
-                        .onTapGesture(count: 2, perform: beginEdit)
-                        .help(entry.text)
-                }
-
-                if editing {
-                    Button(action: commitEdit) {
-                        Text("Save")
-                            .font(.system(size: 11, weight: .semibold))
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 4)
-                            .background(Capsule().fill(Theme.accent))
-                            .foregroundColor(.white)
-                            .contentShape(Capsule())
-                    }
-                    .buttonStyle(.plain)
-                    .pointingCursor()
-                    .help("Save (Return or ⌘↩)")
-                } else {
-                    if let originLabel {
-                        Text(originLabel)
-                            .font(.system(size: 10, weight: .medium))
-                            .lineLimit(1)
-                            .fixedSize()
-                            .padding(.horizontal, 7)
-                            .padding(.vertical, 2)
-                            .background(Capsule().fill(Theme.orange500.opacity(0.15)))
-                            .foregroundColor(Theme.orange700)
-                            .help("Carried over from \(originLabel)")
-                    }
-
-                    Button {
-                        withAnimation(.easeOut(duration: 0.18)) { pickingTag.toggle() }
-                    } label: {
-                        if entry.tag.isEmpty {
-                            AddTagBadge()
-                        } else {
-                            TagBadge(label: entry.tag)
-                        }
-                    }
-                    .buttonStyle(.plain)
-                    .pointingCursor()
-                    .help(entry.tag.isEmpty ? "Add a tag" : "Change tag")
-
-                    RowIconButton(systemName: "square.and.pencil",
-                                  help: "Edit entry",
-                                  action: beginEdit)
-
-                    RowIconButton(systemName: "xmark",
-                                  help: "Delete entry",
-                                  size: 11,
-                                  danger: true) {
-                        store.remove(entry.id)
-                    }
-                }
-            }
-
-            if pickingTag {
-                FlowLayout(spacing: 6, lineSpacing: 6) {
-                    ForEach(store.data.settings.tags, id: \.self) { tag in
-                        TagChip(label: tag, selected: tag == entry.tag) { pick(tag) }
-                    }
-                    TagChip(label: "No tag", selected: entry.tag.isEmpty) { pick("") }
-                }
-                .padding(.leading, 28)
-            }
-        }
-        .padding(.vertical, 7)
-        .padding(.horizontal, 6)
-        .background(
-            RoundedRectangle(cornerRadius: Theme.radiusMd)
-                // accent100, not neutral200 — the tag badge is neutral200 and
-                // vanished into a matching hover background.
-                .fill(hovering ? Theme.accent100 : Color.clear)
-        )
-        .overlay(
-            // Inset by half the line width — a centred stroke would spill outside
-            // the row's bounds and get clipped by the enclosing ScrollView.
-            RoundedRectangle(cornerRadius: Theme.radiusMd)
-                .inset(by: 0.9)
-                .trim(from: 0, to: traceProgress)
-                .stroke(Theme.success.opacity(0.85), style: StrokeStyle(lineWidth: 1.5, lineCap: .round))
-                .opacity(traceOpacity)
-        )
-        .onHover { hovering = $0 }
-    }
-
-    private func pick(_ tag: String) {
-        store.setEntryTag(entry.id, tag: tag)
-        withAnimation(.easeOut(duration: 0.18)) { pickingTag = false }
-    }
-
-    private func beginEdit() {
-        editText = entry.text
-        pickingTag = false
-        editing = true
-    }
-
-
-    private func commitEdit() {
-        guard editing else { return }
-        editing = false
-        let trimmed = editText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
-        store.updateEntryText(entry.id, text: trimmed)
-        flashSaved()
-    }
-
-    /// Green outline that draws itself around the row and finishes where it began.
-    private func flashSaved() {
-        traceProgress = 0
-        traceOpacity = 1
-        withAnimation(.easeInOut(duration: 0.55)) { traceProgress = 1 }
-        Task { @MainActor in
-            try? await Task.sleep(nanoseconds: 600_000_000)
-            withAnimation(.easeOut(duration: 0.35)) { traceOpacity = 0 }
-            try? await Task.sleep(nanoseconds: 400_000_000)
-            traceProgress = 0
-        }
-    }
-
-    /// Esc discards. Clearing `editing` first stops the focus-loss handler from saving.
-    private func cancelEdit() {
-        editing = false
-    }
-}
-
 /// Pill segmented control matching the tab bar — the native segmented picker's
 /// unselected segments are nearly invisible on the light theme.
 struct SegmentedPicker: View {
@@ -350,6 +185,8 @@ struct SegmentedPicker: View {
                 } label: {
                     Text(option)
                         .font(.system(size: 12, weight: .semibold))
+                        .lineLimit(1)
+                        .fixedSize()
                         .padding(.horizontal, 14)
                         .padding(.vertical, 5)
                         .background {
@@ -398,14 +235,24 @@ struct DaybookToggleStyle: ToggleStyle {
 
 /// Compact read-only entry line for the Week view.
 struct WeekEntryLine: View {
+    @EnvironmentObject var store: Store
     let entry: Entry
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
-            Text(entry.done ? "✓" : "○")
-                .font(.system(size: 12.5))
-                .foregroundColor(entry.done ? Theme.accent700 : Theme.neutral500)
-                .frame(width: 11, alignment: .leading)
+            // Reviewing the week is exactly when you want to tick something off.
+            Button {
+                store.toggle(entry.id)
+            } label: {
+                Text(entry.done ? "✓" : "○")
+                    .font(.system(size: 12.5))
+                    .foregroundColor(entry.done ? Theme.accent700 : Theme.neutral500)
+                    .frame(width: 11, alignment: .leading)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .pointingCursor()
+            .help(entry.done ? "Mark as not done" : "Mark as done")
             Text(entry.text)
                 .font(.system(size: 13.5))
                 .lineSpacing(1.5)

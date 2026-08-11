@@ -8,6 +8,10 @@
 	<string>Daybook</string>
 	<key>CFBundleIdentifier</key>
 	<string>com.priyadharshan.daybook</string>
+	<key>CFBundleIconFile</key>
+	<string>Daybook</string>
+	<key>CFBundleIconName</key>
+	<string>Daybook</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
