@@ -123,7 +123,9 @@ final class Store: ObservableObject {
         if old.reminderEnabled != data.settings.reminderEnabled
             || old.reminderHour != data.settings.reminderHour
             || old.reminderMinute != data.settings.reminderMinute {
-            Reminders.sync(settings: data.settings)
+            // Confirm only on the off → on transition, not on every time tweak.
+            Reminders.sync(settings: data.settings,
+                           confirming: !old.reminderEnabled && data.settings.reminderEnabled)
         }
     }
 

@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import UserNotifications
 
 @main
 struct DaybookApp: App {
@@ -25,5 +26,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // appearance, native controls follow a dark system and render their
         // text white on our white surfaces — invisible.
         NSApp.appearance = NSAppearance(named: .aqua)
+
+        // Without a delegate, macOS suppresses banners while the app is active —
+        // which is exactly when you enable the reminder and expect to see one.
+        if Reminders.available {
+            UNUserNotificationCenter.current().delegate = self
+        }
+    }
+}
+
+extension AppDelegate: UNUserNotificationCenterDelegate {
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification,
+        withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
+    ) {
+        completionHandler([.banner, .sound])
     }
 }

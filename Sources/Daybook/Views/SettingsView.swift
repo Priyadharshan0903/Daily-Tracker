@@ -173,16 +173,33 @@ struct SettingsView: View {
     /// Data actions live with the privacy note — that's what they're about, and
     /// as quiet links they stop outweighing the actual settings.
     private var footer: some View {
-        HStack(spacing: 12) {
-            Text("Entries stay on this Mac.")
-                .font(Theme.font(11.5))
-                .foregroundColor(Theme.neutral600)
-                .fixedSize()
-            link("Export…", action: exportAll)
-            link("Import…", action: importAll)
-            Spacer(minLength: 8)
-            link("Quit Daybook") { NSApplication.shared.terminate(nil) }
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 12) {
+                Text("Entries stay on this Mac.")
+                    .font(Theme.font(11.5))
+                    .foregroundColor(Theme.neutral600)
+                    .fixedSize()
+                link("Export…", action: exportAll)
+                link("Import…", action: importAll)
+                Spacer(minLength: 8)
+                link("Quit Daybook") { NSApplication.shared.terminate(nil) }
+            }
+
+            Text(versionLabel)
+                .font(Theme.font(10.5))
+                .foregroundColor(Theme.neutral500)
         }
+    }
+
+    /// Reads the running bundle, so it can't drift from what's installed —
+    /// useful when a stale copy in /Applications is shadowing a fresh build.
+    private var versionLabel: String {
+        let info = Bundle.main.infoDictionary
+        guard let short = info?["CFBundleShortVersionString"] as? String else {
+            return "Daybook — running from source"
+        }
+        let build = info?["CFBundleVersion"] as? String
+        return build.map { "Daybook \(short) (\($0))" } ?? "Daybook \(short)"
     }
 
     private func textScaleButton(_ symbol: String, enabled: Bool, action: @escaping () -> Void) -> some View {

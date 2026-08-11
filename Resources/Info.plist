@@ -6,11 +6,16 @@
 	<string>en</string>
 	<key>CFBundleExecutable</key>
 	<string>Daybook</string>
+	<!-- Changed from com.priyadharshan.daybook: Notification Center keys its
+	     per-app record (including the icon it draws) by bundle id, and that
+	     record was created while the app still had no icon. The stale record
+	     survives reinstalls and cache flushes; a new id gets a clean one. -->
 	<key>CFBundleIdentifier</key>
-	<string>com.priyadharshan.daybook</string>
+	<string>dev.priyadharshan.daybook</string>
+	<!-- CFBundleIconFile only. CFBundleIconName points at an asset-catalog
+	     entry, which this app doesn't have; with it set, the notification
+	     service looks there, finds nothing, and shows a blank icon. -->
 	<key>CFBundleIconFile</key>
-	<string>Daybook</string>
-	<key>CFBundleIconName</key>
 	<string>Daybook</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
@@ -21,9 +26,9 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0.0</string>
+	<string>1.1.0</string>
 	<key>CFBundleVersion</key>
-	<string>1</string>
+	<string>2</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>13.0</string>
 	<key>LSUIElement</key>
