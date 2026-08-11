@@ -7,7 +7,7 @@ enum Reminders {
     /// UNUserNotificationCenter crashes outside a real .app bundle (e.g. `swift run`).
     static var available: Bool { Bundle.main.bundleIdentifier != nil }
 
-    static func sync(settings: Settings) {
+    static func sync(settings: AppSettings) {
         guard available else { return }
         let center = UNUserNotificationCenter.current()
         center.removePendingNotificationRequests(withIdentifiers: [identifier])

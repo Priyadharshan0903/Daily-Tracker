@@ -10,6 +10,7 @@ struct SettingsView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             general
+            workspaces
             tags
             footer
         }
@@ -59,12 +60,42 @@ struct SettingsView: View {
         }
     }
 
+    private var workspaces: some View {
+        SettingsSection("Workspaces") {
+            ForEach(Array(store.workspaces.enumerated()), id: \.element.id) { index, workspace in
+                if index > 0 { RowDivider() }
+                WorkspaceSettingsRow(
+                    workspace: workspace,
+                    isActive: workspace.id == store.activeWorkspace.id,
+                    canDelete: store.workspaces.count > 1,
+                    onRename: { store.renameWorkspace(workspace.id, to: $0) },
+                    onPickAvatar: { store.setWorkspaceAvatar(workspace.id, to: $0) },
+                    onDelete: { confirmDelete(workspace) }
+                )
+            }
+        }
+    }
+
+    /// Deleting a workspace takes its entries with it, so make that explicit.
+    private func confirmDelete(_ workspace: Workspace) {
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = "Delete “\(workspace.name)”?"
+        alert.informativeText = "Its \(workspace.entries.count) entries, tags and weekly notes are deleted with it. This can't be undone."
+        alert.addButton(withTitle: "Delete")
+        alert.addButton(withTitle: "Cancel")
+        NSApp.activate(ignoringOtherApps: true)
+        if alert.runModal() == .alertFirstButtonReturn {
+            store.deleteWorkspace(workspace.id)
+        }
+    }
+
     private var tags: some View {
-        SettingsSection("Tags") {
+        SettingsSection("Tags in \(store.activeWorkspace.name)") {
             FlowLayout(spacing: 6, lineSpacing: 6) {
-                ForEach(store.data.settings.tags, id: \.self) { tag in
+                ForEach(store.tags, id: \.self) { tag in
                     EditableTagChip(tag: tag,
-                                    canDelete: store.data.settings.tags.count > 1,
+                                    canDelete: store.tags.count > 1,
                                     onRename: { store.renameTag(tag, to: $0) },
                                     onDelete: { store.deleteTag(tag) })
                 }
@@ -79,7 +110,7 @@ struct SettingsView: View {
             SettingsRow("New tasks get") {
                 Picker("", selection: defaultTag) {
                     Text("No tag").tag("")
-                    ForEach(store.data.settings.tags, id: \.self) { tag in
+                    ForEach(store.tags, id: \.self) { tag in
                         Text(tag).tag(tag)
                     }
                 }
@@ -147,12 +178,15 @@ struct SettingsView: View {
 
     // MARK: - Bindings
 
-    private func binding<T>(_ keyPath: WritableKeyPath<Settings, T>) -> Binding<T> {
+    private func binding<T>(_ keyPath: WritableKeyPath<AppSettings, T>) -> Binding<T> {
         Binding(get: { store.data.settings[keyPath: keyPath] },
                 set: { store.data.settings[keyPath: keyPath] = $0 })
     }
 
-    private var defaultTag: Binding<String> { binding(\.defaultTag) }
+    /// Tags belong to the workspace, not to the app settings.
+    private var defaultTag: Binding<String> {
+        Binding(get: { store.defaultTag }, set: { store.setDefaultTag($0) })
+    }
 
     private var weekStart: Binding<String> {
         Binding(get: { store.data.settings.weekStart.rawValue },
@@ -218,7 +252,8 @@ struct SettingsView: View {
 
         let alert = NSAlert()
         alert.messageText = "Replace Daybook data?"
-        alert.informativeText = "This replaces all current entries, notes, and settings with the imported file (\(decoded.entries.count) entries). This can't be undone."
+        let entryCount = decoded.workspaces.reduce(0) { $0 + $1.entries.count }
+        alert.informativeText = "This replaces every workspace with the imported file (\(decoded.workspaces.count) workspaces, \(entryCount) entries). This can't be undone."
         alert.addButton(withTitle: "Replace")
         alert.addButton(withTitle: "Cancel")
         if alert.runModal() == .alertFirstButtonReturn {
@@ -293,6 +328,117 @@ private struct RowDivider: View {
             .fill(Theme.divider)
             .frame(height: 1)
             .padding(.leading, 12)
+    }
+}
+
+/// One workspace: avatar, name (click to rename), and a delete button.
+private struct WorkspaceSettingsRow: View {
+    let workspace: Workspace
+    let isActive: Bool
+    let canDelete: Bool
+    let onRename: (String) -> Void
+    let onPickAvatar: (String) -> Void
+    let onDelete: () -> Void
+
+    @State private var isEditing = false
+    @State private var isHovering = false
+    @State private var isPickingAvatar = false
+    @State private var draft = ""
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            row
+            if isPickingAvatar {
+                AvatarPicker(selected: workspace.avatar) { emoji in
+                    onPickAvatar(emoji)
+                    withAnimation(.easeOut(duration: 0.18)) { isPickingAvatar = false }
+                }
+                .padding(.leading, 31)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .onHover { isHovering = $0 }
+    }
+
+    private var row: some View {
+        HStack(spacing: 9) {
+            Button {
+                withAnimation(.easeOut(duration: 0.18)) { isPickingAvatar.toggle() }
+            } label: {
+                WorkspaceAvatar(workspace: workspace, size: 22)
+                    .overlay(
+                        Circle().strokeBorder(isPickingAvatar ? Theme.accent : Color.clear, lineWidth: 1.5)
+                    )
+                    .scaleEffect(isHovering ? 1.08 : 1)
+                    .animation(.spring(response: 0.25, dampingFraction: 0.7), value: isHovering)
+                    .contentShape(Circle())
+            }
+            .buttonStyle(.plain)
+            .pointingCursor()
+            .help("Choose an avatar")
+
+            if isEditing {
+                InlineTextField(text: $draft,
+                                initialText: workspace.name,
+                                fontSize: 12.5,
+                                onSubmit: commit,
+                                onCancel: { isEditing = false },
+                                onBlur: commit)
+                    .frame(height: 16)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(RoundedRectangle(cornerRadius: 5).fill(Theme.surface))
+                    .overlay(RoundedRectangle(cornerRadius: 5).strokeBorder(Theme.accent.opacity(0.55)))
+            } else {
+                Button {
+                    draft = workspace.name
+                    isEditing = true
+                } label: {
+                    Text(workspace.name)
+                        .font(.system(size: 12.5, weight: .medium))
+                        .foregroundColor(Theme.text)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .pointingCursor()
+                .help("Click to rename")
+            }
+
+            if isActive {
+                Text("Active")
+                    .font(.system(size: 9.5, weight: .semibold))
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Capsule().fill(Theme.accent100))
+                    .foregroundColor(Theme.accent700)
+            }
+
+            Spacer(minLength: 8)
+
+            Text("\(workspace.entries.count)")
+                .font(.system(size: 11))
+                .foregroundColor(Theme.neutral500)
+
+            if canDelete {
+                Button(action: onDelete) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 8, weight: .bold))
+                        .foregroundColor(Theme.neutral500)
+                        .frame(width: 16, height: 16)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .pointingCursor()
+                .opacity(isHovering ? 1 : 0)
+                .help("Delete workspace and everything in it")
+            }
+        }
+    }
+
+    private func commit() {
+        isEditing = false
+        onRename(draft)
     }
 }
 

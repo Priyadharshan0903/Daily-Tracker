@@ -53,8 +53,8 @@ struct TodayView: View {
 
     /// nil draft = untouched (use the default); "" = deliberately untagged.
     private var currentTag: String {
-        if let tag = draftTag, tag.isEmpty || store.data.settings.tags.contains(tag) { return tag }
-        return store.data.settings.defaultTag
+        if let tag = draftTag, tag.isEmpty || store.tags.contains(tag) { return tag }
+        return store.defaultTag
     }
 
     /// The tag picker only earns its space while you're actually composing.
@@ -147,7 +147,7 @@ struct TodayView: View {
                 .font(.system(size: 12))
                 .foregroundColor(Theme.neutral600)
                 .padding(.vertical, 4)
-            ForEach(store.data.settings.tags, id: \.self) { tag in
+            ForEach(store.tags, id: \.self) { tag in
                 TagChip(label: tag, selected: tag == currentTag) { draftTag = tag }
             }
             TagChip(label: "No tag", selected: currentTag.isEmpty) { draftTag = "" }
@@ -161,7 +161,7 @@ struct TodayView: View {
                 .foregroundColor(Theme.neutral600)
                 .padding(.vertical, 4)
             TagChip(label: "All", selected: tagFilter == nil) { setFilter(nil) }
-            ForEach(store.data.settings.tags, id: \.self) { tag in
+            ForEach(store.tags, id: \.self) { tag in
                 TagChip(label: tag, selected: tagFilter == tag) { setFilter(tag) }
             }
             TagChip(label: "No tag", selected: tagFilter == "") { setFilter("") }

@@ -21,10 +21,14 @@ final class Store: ObservableObject {
     private var saveTask: Task<Void, Never>?
 
     init() {
-        data = Store.load()
+        let loaded = Store.load()
+        data = loaded.data
         todayKey = Store.dayFormatter.string(from: Date())
         Reminders.sync(settings: data.settings)
         observeSystemDateChanges()
+        // Write the upgraded shape straight away rather than waiting for the
+        // first edit, so the file on disk matches what the app is running.
+        if loaded.migrated { persist() }
     }
 
     // MARK: - Following the system clock
@@ -57,12 +61,17 @@ final class Store: ObservableObject {
         return base.appendingPathComponent("Daybook/daybook.json")
     }
 
-    private static func load() -> StoreData {
-        guard let raw = try? Data(contentsOf: fileURL),
-              let decoded = try? JSONDecoder().decode(StoreData.self, from: raw) else {
-            return StoreData()
+    private static func load() -> (data: StoreData, migrated: Bool) {
+        guard let raw = try? Data(contentsOf: fileURL) else { return (.initial(), false) }
+        let decoder = JSONDecoder()
+        if let current = try? decoder.decode(StoreData.self, from: raw), !current.workspaces.isEmpty {
+            return (current, false)
         }
-        return decoded
+        // Pre-workspace file: fold everything into one workspace.
+        if let legacy = try? decoder.decode(LegacyStoreData.self, from: raw) {
+            return (StoreData(migrating: legacy), true)
+        }
+        return (.initial(), true)
     }
 
     private func scheduleSave() {
@@ -77,7 +86,8 @@ final class Store: ObservableObject {
     private func persist() {
         let url = Store.fileURL
         do {
-            try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try FileManager.default.createDirectory(at: url.deletingLastPathComponent(),
+                                                    withIntermediateDirectories: true)
             let encoder = JSONEncoder()
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
             try encoder.encode(data).write(to: url, options: .atomic)
@@ -86,7 +96,7 @@ final class Store: ObservableObject {
         }
     }
 
-    private func applySettingsChanges(from old: Settings) {
+    private func applySettingsChanges(from old: AppSettings) {
         if old.launchAtLogin != data.settings.launchAtLogin {
             LaunchAtLogin.set(data.settings.launchAtLogin)
         }
@@ -94,6 +104,66 @@ final class Store: ObservableObject {
             || old.reminderHour != data.settings.reminderHour
             || old.reminderMinute != data.settings.reminderMinute {
             Reminders.sync(settings: data.settings)
+        }
+    }
+
+    // MARK: - Active workspace
+    //
+    // Everything below reads and writes the active workspace only, so the views
+    // never have to know which one is in play.
+
+    var workspaces: [Workspace] { data.workspaces }
+
+    var activeWorkspace: Workspace {
+        data.workspaces.first { $0.id == data.activeWorkspaceID } ?? data.workspaces[0]
+    }
+
+    var tags: [String] { activeWorkspace.tags }
+    var defaultTag: String { activeWorkspace.defaultTag }
+
+    private var activeIndex: Int {
+        data.workspaces.firstIndex { $0.id == data.activeWorkspaceID } ?? 0
+    }
+
+    private func mutateActive(_ change: (inout Workspace) -> Void) {
+        let index = activeIndex
+        guard data.workspaces.indices.contains(index) else { return }
+        change(&data.workspaces[index])
+    }
+
+    func activate(_ id: UUID) {
+        guard data.workspaces.contains(where: { $0.id == id }) else { return }
+        data.activeWorkspaceID = id
+    }
+
+    @discardableResult
+    func addWorkspace(named name: String) -> UUID? {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        let workspace = Workspace(name: trimmed)
+        data.workspaces.append(workspace)
+        data.activeWorkspaceID = workspace.id
+        return workspace.id
+    }
+
+    func setWorkspaceAvatar(_ id: UUID, to emoji: String) {
+        guard let index = data.workspaces.firstIndex(where: { $0.id == id }) else { return }
+        data.workspaces[index].avatar = emoji
+    }
+
+    func renameWorkspace(_ id: UUID, to name: String) {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, let index = data.workspaces.firstIndex(where: { $0.id == id }) else { return }
+        data.workspaces[index].name = trimmed
+    }
+
+    /// Removes a workspace and everything in it. Always keeps at least one.
+    func deleteWorkspace(_ id: UUID) {
+        guard data.workspaces.count > 1,
+              let index = data.workspaces.firstIndex(where: { $0.id == id }) else { return }
+        data.workspaces.remove(at: index)
+        if data.activeWorkspaceID == id {
+            data.activeWorkspaceID = data.workspaces[min(index, data.workspaces.count - 1)].id
         }
     }
 
@@ -125,21 +195,21 @@ final class Store: ObservableObject {
 
     func dayKey(for date: Date) -> String { Store.dayFormatter.string(from: date) }
 
-    /// "Monday, August 10" — used for the calligraphic date header.
+    /// "Monday, August 10"
     func longLabel(forDayKey key: String) -> String {
-        guard let d = date(fromDayKey: key) else { return key }
-        return Store.fullDateFormatter.string(from: d)
+        guard let date = date(fromDayKey: key) else { return key }
+        return Store.fullDateFormatter.string(from: date)
     }
 
     /// "Aug 10"
     func shortLabel(forDayKey key: String) -> String {
-        guard let d = date(fromDayKey: key) else { return key }
-        return Store.monthDayFormatter.string(from: d)
+        guard let date = date(fromDayKey: key) else { return key }
+        return Store.monthDayFormatter.string(from: date)
     }
 
     func shiftDay(_ key: String, by days: Int) -> String {
-        guard let d = date(fromDayKey: key),
-              let shifted = calendar.date(byAdding: .day, value: days, to: d) else { return key }
+        guard let date = date(fromDayKey: key),
+              let shifted = calendar.date(byAdding: .day, value: days, to: date) else { return key }
         return dayKey(for: shifted)
     }
 
@@ -149,120 +219,188 @@ final class Store: ObservableObject {
         calendar.dateInterval(of: .weekOfYear, for: date)?.start ?? date
     }
 
-    // MARK: - Today
+    // MARK: - Entries
 
-    var todayEntries: [Entry] {
-        entries(on: todayKey)
-    }
+    var todayEntries: [Entry] { entries(on: todayKey) }
 
     func entries(on dayKey: String) -> [Entry] {
-        data.entries.filter { $0.day == dayKey }
+        activeWorkspace.entries.filter { $0.day == dayKey }
     }
 
-    /// Unfinished entries from earlier days. They keep their original date — the weekly
-    /// report stays truthful about when work started — but keep surfacing until done.
-    /// Day keys are "yyyy-MM-dd", so string ordering is chronological.
+    /// Unfinished entries from earlier days. They keep their original date — the
+    /// weekly report stays truthful about when work started — but keep surfacing
+    /// until done. Day keys are "yyyy-MM-dd", so string ordering is chronological.
     func carriedOver(before dayKey: String) -> [Entry] {
-        data.entries
+        activeWorkspace.entries
             .filter { !$0.done && $0.day < dayKey }
             .sorted { $0.day < $1.day }
     }
 
-    var daysWithEntries: Set<String> {
-        Set(data.entries.map(\.day))
-    }
+    var daysWithEntries: Set<String> { Set(activeWorkspace.entries.map(\.day)) }
 
     var daysWithUnfinished: Set<String> {
-        Set(data.entries.filter { !$0.done }.map(\.day))
+        Set(activeWorkspace.entries.filter { !$0.done }.map(\.day))
     }
-
-    // MARK: - Entry operations
 
     func addEntry(text: String, tag: String, day: String? = nil) {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
-        data.entries.append(Entry(text: trimmed, tag: tag, day: day ?? todayKey))
+        let entry = Entry(text: trimmed, tag: tag, day: day ?? todayKey)
+        mutateActive { $0.entries.append(entry) }
     }
 
     func toggle(_ id: UUID) {
-        guard let i = data.entries.firstIndex(where: { $0.id == id }) else { return }
-        data.entries[i].done.toggle()
+        mutateActive { workspace in
+            guard let index = workspace.entries.firstIndex(where: { $0.id == id }) else { return }
+            workspace.entries[index].done.toggle()
+        }
     }
 
     func remove(_ id: UUID) {
-        data.entries.removeAll { $0.id == id }
+        mutateActive { $0.entries.removeAll { $0.id == id } }
     }
 
     func updateEntryText(_ id: UUID, text: String) {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty, let i = data.entries.firstIndex(where: { $0.id == id }) else { return }
-        data.entries[i].text = trimmed
+        guard !trimmed.isEmpty else { return }
+        mutateActive { workspace in
+            guard let index = workspace.entries.firstIndex(where: { $0.id == id }) else { return }
+            workspace.entries[index].text = trimmed
+        }
+    }
+
+    func setEntryTag(_ id: UUID, tag: String) {
+        mutateActive { workspace in
+            guard let index = workspace.entries.firstIndex(where: { $0.id == id }) else { return }
+            workspace.entries[index].tag = tag
+        }
     }
 
     /// Reorders by moving the dragged entry next to the target. Order is the
     /// array's own order — `entries(on:)` filters while preserving it — so this
     /// needs no extra field on `Entry` and no migration.
     func moveEntry(_ id: UUID, onto targetID: UUID) {
-        guard id != targetID,
-              let from = data.entries.firstIndex(where: { $0.id == id }) else { return }
-        let item = data.entries.remove(at: from)
-        guard let to = data.entries.firstIndex(where: { $0.id == targetID }) else {
-            data.entries.insert(item, at: min(from, data.entries.count))
-            return
+        guard id != targetID else { return }
+        mutateActive { workspace in
+            guard let from = workspace.entries.firstIndex(where: { $0.id == id }) else { return }
+            let item = workspace.entries.remove(at: from)
+            guard let to = workspace.entries.firstIndex(where: { $0.id == targetID }) else {
+                workspace.entries.insert(item, at: min(from, workspace.entries.count))
+                return
+            }
+            // Dragging down lands after the target, dragging up lands before it.
+            workspace.entries.insert(item, at: from <= to ? to + 1 : to)
         }
-        // Dragging down lands after the target, dragging up lands before it.
-        data.entries.insert(item, at: from <= to ? to + 1 : to)
     }
 
     /// Moves an entry one place within its own day and completion group, so a
     /// keyboard reorder can't jump it into a different section of the list.
     func moveEntry(_ id: UUID, by offset: Int) {
-        guard let index = data.entries.firstIndex(where: { $0.id == id }) else { return }
-        let entry = data.entries[index]
-        let siblings = data.entries.indices.filter {
-            data.entries[$0].day == entry.day && data.entries[$0].done == entry.done
+        mutateActive { workspace in
+            guard let index = workspace.entries.firstIndex(where: { $0.id == id }) else { return }
+            let entry = workspace.entries[index]
+            let siblings = workspace.entries.indices.filter {
+                workspace.entries[$0].day == entry.day && workspace.entries[$0].done == entry.done
+            }
+            guard let position = siblings.firstIndex(of: index),
+                  siblings.indices.contains(position + offset) else { return }
+            workspace.entries.swapAt(index, siblings[position + offset])
         }
-        guard let position = siblings.firstIndex(of: index),
-              siblings.indices.contains(position + offset) else { return }
-        data.entries.swapAt(index, siblings[position + offset])
     }
 
-    func setEntryTag(_ id: UUID, tag: String) {
-        guard let i = data.entries.firstIndex(where: { $0.id == id }) else { return }
-        data.entries[i].tag = tag
-    }
-
-    // MARK: - Tag management
+    // MARK: - Tags
 
     func addTag(_ name: String) {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty, !data.settings.tags.contains(trimmed) else { return }
-        data.settings.tags.append(trimmed)
+        guard !trimmed.isEmpty else { return }
+        mutateActive { workspace in
+            guard !workspace.tags.contains(trimmed) else { return }
+            workspace.tags.append(trimmed)
+        }
     }
 
-    /// Renames a tag everywhere: the tag list, every entry filed under it, and the default tag.
+    /// Renames a tag everywhere in this workspace: the tag list, every entry
+    /// filed under it, and the default tag.
     func renameTag(_ old: String, to new: String) {
         let trimmed = new.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty, trimmed != old,
-              !data.settings.tags.contains(trimmed),
-              let idx = data.settings.tags.firstIndex(of: old) else { return }
-        data.settings.tags[idx] = trimmed
-        for i in data.entries.indices where data.entries[i].tag == old {
-            data.entries[i].tag = trimmed
-        }
-        if data.settings.defaultTag == old {
-            data.settings.defaultTag = trimmed
+        guard !trimmed.isEmpty, trimmed != old else { return }
+        mutateActive { workspace in
+            guard !workspace.tags.contains(trimmed),
+                  let index = workspace.tags.firstIndex(of: old) else { return }
+            workspace.tags[index] = trimmed
+            for i in workspace.entries.indices where workspace.entries[i].tag == old {
+                workspace.entries[i].tag = trimmed
+            }
+            if workspace.defaultTag == old { workspace.defaultTag = trimmed }
         }
     }
 
-    /// Removes a tag from the list (existing entries keep their label). Always keeps at least one tag.
+    /// Removes a tag from the list; existing entries keep their label.
     func deleteTag(_ name: String) {
-        guard data.settings.tags.count > 1,
-              let idx = data.settings.tags.firstIndex(of: name) else { return }
-        data.settings.tags.remove(at: idx)
-        if data.settings.defaultTag == name {
-            data.settings.defaultTag = data.settings.tags[0]
+        mutateActive { workspace in
+            guard let index = workspace.tags.firstIndex(of: name) else { return }
+            workspace.tags.remove(at: index)
+            if workspace.defaultTag == name { workspace.defaultTag = "" }
         }
+    }
+
+    func setDefaultTag(_ tag: String) {
+        mutateActive { $0.defaultTag = tag }
+    }
+
+    // MARK: - Week notes
+
+    func notes(forWeek id: String) -> WeekNotes {
+        activeWorkspace.weekNotes[id] ?? WeekNotes()
+    }
+
+    func setNotes(_ notes: WeekNotes, forWeek id: String) {
+        mutateActive { $0.weekNotes[id] = notes }
+    }
+
+    // MARK: - Weeks
+
+    /// Week-start dates to navigate between: every week that has entries, plus
+    /// the current week.
+    var weekStarts: [Date] {
+        var starts: Set<Date> = [weekStart(containing: Date())]
+        for entry in activeWorkspace.entries {
+            if let date = date(fromDayKey: entry.day) {
+                starts.insert(weekStart(containing: date))
+            }
+        }
+        return starts.sorted()
+    }
+
+    func weekVM(startingAt start: Date) -> WeekVM {
+        let cal = calendar
+        let entries = activeWorkspace.entries
+        let allDays: [DayVM] = (0..<7).compactMap { offset in
+            guard let date = cal.date(byAdding: .day, value: offset, to: start) else { return nil }
+            let key = dayKey(for: date)
+            let weekday = cal.component(.weekday, from: date)
+            return DayVM(date: date,
+                         key: key,
+                         dow: Store.dowFormatter.string(from: date),
+                         dateLabel: Store.monthDayFormatter.string(from: date),
+                         isWeekend: weekday == 1 || weekday == 7,
+                         entries: entries.filter { $0.day == key })
+        }
+        let visible = allDays.filter { !$0.isWeekend || !$0.entries.isEmpty }
+        let days = visible.isEmpty ? allDays : visible
+        return WeekVM(start: start,
+                      id: dayKey(for: start),
+                      label: Store.weekLabel(from: days.first!.date, to: days.last!.date, calendar: cal),
+                      days: days)
+    }
+
+    static func weekLabel(from: Date, to: Date, calendar: Calendar) -> String {
+        let year = formatter("yyyy")
+        let sameMonth = calendar.component(.month, from: from) == calendar.component(.month, from: to)
+            && calendar.component(.year, from: from) == calendar.component(.year, from: to)
+        let start = monthDayFormatter.string(from: from)
+        let end = sameMonth ? String(calendar.component(.day, from: to)) : monthDayFormatter.string(from: to)
+        return "\(start) – \(end), \(year.string(from: to))"
     }
 
     // MARK: - Full backup / restore
@@ -275,60 +413,5 @@ final class Store: ObservableObject {
 
     func replaceAllData(_ new: StoreData) {
         data = new
-    }
-
-    // MARK: - Weeks
-
-    /// Week-start dates to navigate between: every week that has entries, plus the current week.
-    var weekStarts: [Date] {
-        var starts: Set<Date> = [weekStart(containing: Date())]
-        for entry in data.entries {
-            if let d = date(fromDayKey: entry.day) {
-                starts.insert(weekStart(containing: d))
-            }
-        }
-        return starts.sorted()
-    }
-
-    func weekVM(startingAt start: Date) -> WeekVM {
-        let cal = calendar
-        let allDays: [DayVM] = (0..<7).compactMap { offset in
-            guard let date = cal.date(byAdding: .day, value: offset, to: start) else { return nil }
-            let key = dayKey(for: date)
-            let weekday = cal.component(.weekday, from: date)
-            return DayVM(date: date,
-                         key: key,
-                         dow: Store.dowFormatter.string(from: date),
-                         dateLabel: Store.monthDayFormatter.string(from: date),
-                         isWeekend: weekday == 1 || weekday == 7,
-                         entries: data.entries.filter { $0.day == key })
-        }
-        let visible = allDays.filter { !$0.isWeekend || !$0.entries.isEmpty }
-        let days = visible.isEmpty ? allDays : visible
-        return WeekVM(start: start,
-                      id: dayKey(for: start),
-                      label: Store.weekLabel(from: days.first!.date, to: days.last!.date, calendar: cal),
-                      days: days)
-    }
-
-    static func weekLabel(from: Date, to: Date, calendar: Calendar) -> String {
-        let year = DateFormatter()
-        year.locale = Locale(identifier: "en_US_POSIX")
-        year.dateFormat = "yyyy"
-        let sameMonth = calendar.component(.month, from: from) == calendar.component(.month, from: to)
-            && calendar.component(.year, from: from) == calendar.component(.year, from: to)
-        let start = monthDayFormatter.string(from: from)
-        let end = sameMonth ? String(calendar.component(.day, from: to)) : monthDayFormatter.string(from: to)
-        return "\(start) – \(end), \(year.string(from: to))"
-    }
-
-    // MARK: - Week notes
-
-    func notes(forWeek id: String) -> WeekNotes {
-        data.weekNotes[id] ?? WeekNotes()
-    }
-
-    func setNotes(_ notes: WeekNotes, forWeek id: String) {
-        data.weekNotes[id] = notes
     }
 }

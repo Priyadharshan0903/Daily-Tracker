@@ -186,7 +186,7 @@ struct WeekView: View {
     }
 
     private func exportJSON(week: WeekVM) {
-        let export = ExportWeek(week: week, notes: store.notes(forWeek: week.id))
+        let export = ExportWeek(week: week, notes: store.notes(forWeek: week.id), workspace: store.activeWorkspace.name)
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted]
         guard let data = try? encoder.encode(export) else { return }

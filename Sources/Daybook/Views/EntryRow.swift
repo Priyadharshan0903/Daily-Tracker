@@ -6,12 +6,15 @@ import SwiftUI
 /// pieces below, each of which is responsible for exactly one part of the row.
 struct EntryRow: View {
     private enum Layout {
-        static let handleWidth: CGFloat = 14
+        static let handleWidth: CGFloat = 12
         static let controlHeight: CGFloat = 22
         static let columnSpacing: CGFloat = 10
         static let checkWidth: CGFloat = 18
-        /// Lines the tag picker up with the task text rather than the row edge.
-        static var textIndent: CGFloat { handleWidth + columnSpacing + checkWidth + columnSpacing }
+        /// The handle sits in the margin rather than in the row, so the checkbox
+        /// lines up with the section headers instead of being pushed 24pt right.
+        static let handleOffset: CGFloat = -15
+        /// Lines the tag picker up with the task text.
+        static var textIndent: CGFloat { checkWidth + columnSpacing }
     }
 
     @EnvironmentObject private var store: Store
@@ -33,19 +36,6 @@ struct EntryRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: Layout.columnSpacing) {
-                DragHandle(isEnabled: isReorderable,
-                           isHighlighted: isHovering || isDragging,
-                           width: Layout.handleWidth,
-                           height: Layout.controlHeight,
-                           onDrag: { location, translation in
-                               reorder.drag(entry.id, to: location, translation: translation)
-                           },
-                           onEnd: {
-                               reorder.finish { dragged, target in
-                                   store.moveEntry(dragged, onto: target)
-                               }
-                           })
-
                 CheckToggle(done: entry.done) { store.toggle(entry.id) }
 
                 if isEditing {
@@ -89,6 +79,21 @@ struct EntryRow: View {
             if reorder.targetID == entry.id {
                 Capsule().fill(Theme.accent).frame(height: 2)
             }
+        }
+        .overlay(alignment: .leading) {
+            DragHandle(isEnabled: isReorderable,
+                       isHighlighted: isHovering || isDragging,
+                       width: Layout.handleWidth,
+                       height: Layout.controlHeight,
+                       onDrag: { location, translation in
+                           reorder.drag(entry.id, to: location, translation: translation)
+                       },
+                       onEnd: {
+                           reorder.finish { dragged, target in
+                               store.moveEntry(dragged, onto: target)
+                           }
+                       })
+                .offset(x: Layout.handleOffset)
         }
         .savedOutline(trigger: saveCount)
         // Rows publish their frames so the reorder controller can work out which
@@ -135,7 +140,7 @@ struct EntryRow: View {
 
     private var tagPicker: some View {
         FlowLayout(spacing: 6, lineSpacing: 6) {
-            ForEach(store.data.settings.tags, id: \.self) { tag in
+            ForEach(store.tags, id: \.self) { tag in
                 TagChip(label: tag, selected: tag == entry.tag) { pick(tag) }
             }
             TagChip(label: "No tag", selected: entry.tag.isEmpty) { pick("") }
@@ -200,10 +205,9 @@ private struct DragHandle: View {
                         .onChanged { onDrag($0.location, $0.translation.height) }
                         .onEnded { _ in onEnd() }
                 )
-        } else {
-            // Reserve the same width so every row's checkbox lines up.
-            Color.clear.frame(width: width, height: height)
         }
+        // Nothing when disabled: the handle lives in the margin now, so there's
+        // no column to reserve, and an invisible view here would swallow clicks.
     }
 }
 

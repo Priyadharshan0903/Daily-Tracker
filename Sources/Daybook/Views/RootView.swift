@@ -6,6 +6,7 @@ struct RootView: View {
     /// Date state lives here so the header can drive it. nil = the real today.
     @State private var selectedDay: String?
     @State private var showCalendar = false
+    @State private var showWorkspaces = false
     @Namespace private var tabNamespace
 
     enum Tab: String, CaseIterable {
@@ -49,6 +50,20 @@ struct RootView: View {
             quipFooter
         }
         .frame(width: Theme.popoverWidth)
+        // Floats over the content, anchored to the switcher in the footer.
+        .overlay {
+            if showWorkspaces {
+                ZStack(alignment: .bottomTrailing) {
+                    Color.black.opacity(0.05)
+                        .contentShape(Rectangle())
+                        .onTapGesture { closeWorkspaces() }
+                    WorkspacePanel(onDismiss: closeWorkspaces)
+                        .padding(.trailing, 14)
+                        .padding(.bottom, 42)
+                }
+                .transition(.opacity)
+            }
+        }
         // The date must be right the moment the popover is shown, whatever
         // happened while it was closed.
         .onAppear { store.refreshToday() }
@@ -159,12 +174,24 @@ struct RootView: View {
         }
         return VStack(spacing: 0) {
             Rectangle().fill(Theme.divider).frame(height: 1)
-            Text(quip)
-                .font(.system(size: 13))
-                .italic()
-                .foregroundColor(Theme.neutral600)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(EdgeInsets(top: 10, leading: 18, bottom: 12, trailing: 18))
+            HStack(spacing: 10) {
+                // The quip absorbs the slack; the switcher keeps its natural
+                // width so the footer can never push the popover wider.
+                Text(quip)
+                    .font(.system(size: 13))
+                    .italic()
+                    .foregroundColor(Theme.neutral600)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                WorkspaceButton(isOpen: $showWorkspaces)
+                    .fixedSize()
+            }
+            .padding(EdgeInsets(top: 8, leading: 18, bottom: 9, trailing: 14))
         }
+    }
+
+    private func closeWorkspaces() {
+        withAnimation(.easeOut(duration: 0.18)) { showWorkspaces = false }
     }
 }
