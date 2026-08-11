@@ -24,6 +24,7 @@ final class Store: ObservableObject {
         let loaded = Store.load()
         data = loaded.data
         todayKey = Store.dayFormatter.string(from: Date())
+        Store.applyTextScale(loaded.data.settings.textScale)
         Reminders.sync(settings: data.settings)
         observeSystemDateChanges()
         // Write the upgraded shape straight away rather than waiting for the
@@ -96,7 +97,26 @@ final class Store: ObservableObject {
         }
     }
 
+    /// Clamped so a bad value on disk can't make the app unusable.
+    private static func applyTextScale(_ scale: Double) {
+        Theme.textScale = min(max(CGFloat(scale), Theme.minTextScale), Theme.maxTextScale)
+    }
+
+    /// Steps the text size and keeps it inside the supported range.
+    func nudgeTextScale(by delta: CGFloat) {
+        let next = min(max(CGFloat(data.settings.textScale) + delta, Theme.minTextScale), Theme.maxTextScale)
+        guard next != CGFloat(data.settings.textScale) else { return }
+        data.settings.textScale = Double(next)
+    }
+
+    var canGrowText: Bool { CGFloat(data.settings.textScale) < Theme.maxTextScale }
+    var canShrinkText: Bool { CGFloat(data.settings.textScale) > Theme.minTextScale }
+
     private func applySettingsChanges(from old: AppSettings) {
+        if old.textScale != data.settings.textScale {
+            // Set before the publish lands so the next render uses the new size.
+            Store.applyTextScale(data.settings.textScale)
+        }
         if old.launchAtLogin != data.settings.launchAtLogin {
             LaunchAtLogin.set(data.settings.launchAtLogin)
         }

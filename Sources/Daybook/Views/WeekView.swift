@@ -17,7 +17,7 @@ struct WeekView: View {
                 navButton(system: "chevron.left", disabled: idx <= 0) { weekIdx = idx - 1 }
                 Spacer(minLength: 0)
                 Text(week.label)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(Theme.font(15, weight: .semibold))
                 Spacer(minLength: 0)
                 navButton(system: "chevron.right", disabled: idx >= starts.count - 1) { weekIdx = idx + 1 }
             }
@@ -67,7 +67,7 @@ struct WeekView: View {
     private func navButton(system: String, disabled: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: system)
-                .font(.system(size: 12, weight: .semibold))
+                .font(Theme.font(12, weight: .semibold))
                 .frame(width: 28, height: 28)
                 .foregroundColor(disabled ? Theme.neutral500 : Theme.text)
                 .contentShape(Rectangle())
@@ -93,7 +93,7 @@ struct WeekView: View {
                     dayLabel(day, muted: isEmpty)
                     Spacer(minLength: 8)
                     dayCount(day)
-                        .font(.system(size: 11.5))
+                        .font(Theme.font(11.5))
                         .foregroundColor(Theme.neutral500)
                         .fixedSize()
                 }
@@ -144,7 +144,7 @@ struct WeekView: View {
 
     private func dayLabel(_ day: DayVM, muted: Bool) -> some View {
         Text("\(day.dow.uppercased()) · \(day.dateLabel.uppercased())")
-            .font(.system(size: 11.5, weight: .semibold))
+            .font(Theme.font(11.5, weight: .semibold))
             .kerning(0.8)
             .foregroundColor(muted ? Theme.neutral500 : Theme.neutral700)
             .lineLimit(1)
@@ -153,14 +153,14 @@ struct WeekView: View {
     private func noteField(title: String, titleColor: Color, placeholder: String, text: Binding<String>) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(title)
-                .font(.system(size: 12, weight: .medium))
+                .font(Theme.font(12, weight: .medium))
                 .foregroundColor(titleColor)
             // Padding lives on the ZStack so the placeholder and the text view
             // share one origin — no per-child tuning against AppKit's insets.
             ZStack(alignment: .topLeading) {
                 if text.wrappedValue.isEmpty {
                     Text(placeholder)
-                        .font(.system(size: 13))
+                        .font(Theme.font(13))
                         .foregroundColor(Theme.neutral500)
                         .allowsHitTesting(false)
                 }
@@ -168,7 +168,7 @@ struct WeekView: View {
             }
             .padding(.horizontal, 8)
             .padding(.vertical, 6)
-            .frame(height: 48)
+            .frame(height: Theme.scaled(48))
             .background(RoundedRectangle(cornerRadius: 8).fill(Theme.neutral100))
             .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Theme.neutral300))
         }

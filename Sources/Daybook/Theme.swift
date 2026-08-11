@@ -43,6 +43,26 @@ enum Theme {
     static let radiusMd: CGFloat = 10
     static let radiusLg: CGFloat = 16
 
+    // MARK: - Text size
+
+    /// Multiplier applied to every font in the app. Held statically rather than in
+    /// the environment because the sizes are literals at ~65 call sites; `Store`
+    /// updates this before publishing, so the next render picks it up.
+    static var textScale: CGFloat = 1
+
+    static let minTextScale: CGFloat = 0.85
+    static let maxTextScale: CGFloat = 1.30
+    static let textScaleStep: CGFloat = 0.05
+
+    static func font(_ size: CGFloat, weight: Font.Weight = .regular) -> Font {
+        .system(size: scaled(size), weight: weight)
+    }
+
+    /// For AppKit views and any hardcoded height that has to track the text.
+    static func scaled(_ size: CGFloat) -> CGFloat {
+        (size * textScale).rounded(.toNearestOrEven)
+    }
+
     static let popoverWidth: CGFloat = 404
 
     /// Fixed height of the tab content area. Every tab scrolls inside it, so the

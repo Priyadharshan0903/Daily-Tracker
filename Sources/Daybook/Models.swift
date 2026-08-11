@@ -76,6 +76,8 @@ struct AppSettings: Codable, Equatable {
     var reminderMinute: Int = 0
     var weekStart: WeekStart = .monday
     var launchAtLogin: Bool = false
+    /// Multiplier on every font in the app. Clamped when applied.
+    var textScale: Double = 1
 
     init() {}
 
@@ -86,6 +88,7 @@ struct AppSettings: Codable, Equatable {
         reminderMinute = try container.decodeIfPresent(Int.self, forKey: .reminderMinute) ?? 0
         weekStart = try container.decodeIfPresent(WeekStart.self, forKey: .weekStart) ?? .monday
         launchAtLogin = try container.decodeIfPresent(Bool.self, forKey: .launchAtLogin) ?? false
+        textScale = try container.decodeIfPresent(Double.self, forKey: .textScale) ?? 1
     }
 }
 

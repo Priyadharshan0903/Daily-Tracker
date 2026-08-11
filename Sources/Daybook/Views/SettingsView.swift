@@ -29,7 +29,7 @@ struct SettingsView: View {
 
                     if store.data.settings.reminderEnabled {
                         Text("at")
-                            .font(.system(size: 12))
+                            .font(Theme.font(12))
                             .foregroundColor(Theme.neutral600)
                         DatePicker("", selection: reminderTime, displayedComponents: .hourAndMinute)
                             .datePickerStyle(.field)
@@ -37,7 +37,7 @@ struct SettingsView: View {
                             .fixedSize()
                     } else {
                         Text("Off")
-                            .font(.system(size: 12))
+                            .font(Theme.font(12))
                             .foregroundColor(Theme.neutral500)
                     }
                 }
@@ -48,6 +48,23 @@ struct SettingsView: View {
 
             SettingsRow("Week starts on") {
                 SegmentedPicker(options: WeekStart.allCases.map(\.rawValue), selection: weekStart)
+            }
+
+            RowDivider()
+
+            SettingsRow("Text size", hint: "Smaller text fits more on screen") {
+                HStack(spacing: 6) {
+                    textScaleButton("minus", enabled: store.canShrinkText) {
+                        store.nudgeTextScale(by: -Theme.textScaleStep)
+                    }
+                    Text("\(Int((store.data.settings.textScale * 100).rounded()))%")
+                        .font(Theme.font(11.5, weight: .medium))
+                        .foregroundColor(Theme.neutral700)
+                        .frame(width: 42)
+                    textScaleButton("plus", enabled: store.canGrowText) {
+                        store.nudgeTextScale(by: Theme.textScaleStep)
+                    }
+                }
             }
 
             RowDivider()
@@ -130,7 +147,7 @@ struct SettingsView: View {
                             onSubmit: commitNewTag,
                             onCancel: cancelNewTag,
                             onBlur: commitNewTag)
-                .frame(width: 78, height: 15)
+                .frame(width: 78, height: Theme.scaled(15))
                 .padding(.horizontal, 10)
                 .padding(.vertical, 4)
                 .background(Capsule().fill(Theme.surface))
@@ -138,8 +155,8 @@ struct SettingsView: View {
         } else {
             Button { isAddingTag = true } label: {
                 HStack(spacing: 4) {
-                    Image(systemName: "plus").font(.system(size: 8, weight: .bold))
-                    Text("New tag").font(.system(size: 11, weight: .medium))
+                    Image(systemName: "plus").font(Theme.font(8, weight: .bold))
+                    Text("New tag").font(Theme.font(11, weight: .medium))
                 }
                 .padding(.horizontal, 10)
                 .padding(.vertical, 4)
@@ -158,7 +175,7 @@ struct SettingsView: View {
     private var footer: some View {
         HStack(spacing: 12) {
             Text("Entries stay on this Mac.")
-                .font(.system(size: 11.5))
+                .font(Theme.font(11.5))
                 .foregroundColor(Theme.neutral600)
                 .fixedSize()
             link("Export…", action: exportAll)
@@ -168,10 +185,24 @@ struct SettingsView: View {
         }
     }
 
+    private func textScaleButton(_ symbol: String, enabled: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.system(size: 9, weight: .bold))
+                .foregroundColor(enabled ? Theme.neutral700 : Theme.neutral300)
+                .frame(width: 22, height: 20)
+                .background(RoundedRectangle(cornerRadius: 5).fill(Theme.neutral200))
+                .contentShape(RoundedRectangle(cornerRadius: 5))
+        }
+        .buttonStyle(.plain)
+        .disabled(!enabled)
+        .pointingCursor(enabled)
+    }
+
     private func link(_ title: String, action: @escaping () -> Void) -> some View {
         Button(title, action: action)
             .buttonStyle(.plain)
-            .font(.system(size: 11.5, weight: .medium))
+            .font(Theme.font(11.5, weight: .medium))
             .foregroundColor(Theme.accent700)
             .pointingCursor()
     }
@@ -277,7 +308,7 @@ private struct SettingsSection<Content: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(title.uppercased())
-                .font(.system(size: 10, weight: .semibold))
+                .font(Theme.font(10, weight: .semibold))
                 .kerning(0.8)
                 .foregroundColor(Theme.neutral500)
                 .padding(.leading, 2)
@@ -306,10 +337,10 @@ private struct SettingsRow<Content: View>: View {
         HStack(alignment: .center, spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(label)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(Theme.font(13, weight: .medium))
                 if let hint {
                     Text(hint)
-                        .font(.system(size: 10.5))
+                        .font(Theme.font(10.5))
                         .foregroundColor(Theme.neutral500)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -385,7 +416,7 @@ private struct WorkspaceSettingsRow: View {
                                 onSubmit: commit,
                                 onCancel: { isEditing = false },
                                 onBlur: commit)
-                    .frame(height: 16)
+                    .frame(height: Theme.scaled(16))
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
                     .background(RoundedRectangle(cornerRadius: 5).fill(Theme.surface))
@@ -396,7 +427,7 @@ private struct WorkspaceSettingsRow: View {
                     isEditing = true
                 } label: {
                     Text(workspace.name)
-                        .font(.system(size: 12.5, weight: .medium))
+                        .font(Theme.font(12.5, weight: .medium))
                         .foregroundColor(Theme.text)
                         .contentShape(Rectangle())
                 }
@@ -407,7 +438,7 @@ private struct WorkspaceSettingsRow: View {
 
             if isActive {
                 Text("Active")
-                    .font(.system(size: 9.5, weight: .semibold))
+                    .font(Theme.font(9.5, weight: .semibold))
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
                     .background(Capsule().fill(Theme.accent100))
@@ -417,13 +448,13 @@ private struct WorkspaceSettingsRow: View {
             Spacer(minLength: 8)
 
             Text("\(workspace.entries.count)")
-                .font(.system(size: 11))
+                .font(Theme.font(11))
                 .foregroundColor(Theme.neutral500)
 
             if canDelete {
                 Button(action: onDelete) {
                     Image(systemName: "xmark")
-                        .font(.system(size: 8, weight: .bold))
+                        .font(Theme.font(8, weight: .bold))
                         .foregroundColor(Theme.neutral500)
                         .frame(width: 16, height: 16)
                         .contentShape(Rectangle())
@@ -461,7 +492,7 @@ private struct EditableTagChip: View {
                             onSubmit: commit,
                             onCancel: { isEditing = false },
                             onBlur: commit)
-                .frame(width: 78, height: 15)
+                .frame(width: 78, height: Theme.scaled(15))
                 .padding(.horizontal, 10)
                 .padding(.vertical, 4)
                 .background(Capsule().fill(Theme.surface))
@@ -475,7 +506,7 @@ private struct EditableTagChip: View {
                     isEditing = true
                 } label: {
                     Text(tag)
-                        .font(.system(size: 11, weight: .medium))
+                        .font(Theme.font(11, weight: .medium))
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
@@ -485,7 +516,7 @@ private struct EditableTagChip: View {
                 if canDelete {
                     Button(action: onDelete) {
                         Image(systemName: "xmark")
-                            .font(.system(size: 7, weight: .bold))
+                            .font(Theme.font(7, weight: .bold))
                             .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)

@@ -79,13 +79,13 @@ struct PlaceholderField: View {
         ZStack(alignment: .leading) {
             if text.isEmpty {
                 Text(placeholder)
-                    .font(.system(size: size))
+                    .font(.system(size: Theme.scaled(size)))
                     .foregroundColor(Theme.neutral500)
                     .allowsHitTesting(false)
             }
             TextField("", text: $text)
                 .textFieldStyle(.plain)
-                .font(.system(size: size))
+                .font(.system(size: Theme.scaled(size)))
                 .focused($focused)
                 .onSubmit(onSubmit)
         }
@@ -102,7 +102,7 @@ struct TagChip: View {
     var body: some View {
         Button(action: action) {
             Text(label)
-                .font(.system(size: 11, weight: .medium))
+                .font(Theme.font(11, weight: .medium))
                 .padding(.horizontal, 10)
                 .padding(.vertical, 4)
                 .background(Capsule().fill(selected ? Theme.accent200 : Theme.neutral200))
@@ -121,7 +121,7 @@ struct TagBadge: View {
 
     var body: some View {
         Text(label)
-            .font(.system(size: 11))
+            .font(Theme.font(11))
             .lineLimit(1)
             .fixedSize()
             .padding(.horizontal, 9)
@@ -135,7 +135,7 @@ struct TagBadge: View {
 struct AddTagBadge: View {
     var body: some View {
         Text("+ Tag")
-            .font(.system(size: 11))
+            .font(Theme.font(11))
             .lineLimit(1)
             .fixedSize()
             .padding(.horizontal, 9)
@@ -156,7 +156,7 @@ struct CheckToggle: View {
                 if done {
                     Circle().fill(Theme.accent)
                     Image(systemName: "checkmark")
-                        .font(.system(size: 9, weight: .bold))
+                        .font(Theme.font(9, weight: .bold))
                         .foregroundColor(.white)
                 } else {
                     Circle().strokeBorder(Theme.accent600, lineWidth: 1.5)
@@ -184,7 +184,7 @@ struct SegmentedPicker: View {
                     withAnimation(.spring(response: 0.28, dampingFraction: 0.85)) { selection = option }
                 } label: {
                     Text(option)
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(Theme.font(12, weight: .semibold))
                         .lineLimit(1)
                         .fixedSize()
                         .padding(.horizontal, 14)
@@ -245,7 +245,7 @@ struct WeekEntryLine: View {
                 store.toggle(entry.id)
             } label: {
                 Text(entry.done ? "✓" : "○")
-                    .font(.system(size: 12.5))
+                    .font(Theme.font(12.5))
                     .foregroundColor(entry.done ? Theme.accent700 : Theme.neutral500)
                     .frame(width: 11, alignment: .leading)
                     .contentShape(Rectangle())
@@ -254,7 +254,7 @@ struct WeekEntryLine: View {
             .pointingCursor()
             .help(entry.done ? "Mark as not done" : "Mark as done")
             Text(entry.text)
-                .font(.system(size: 13.5))
+                .font(Theme.font(13.5))
                 .lineSpacing(1.5)
                 .lineLimit(2)
                 .truncationMode(.tail)
@@ -262,7 +262,7 @@ struct WeekEntryLine: View {
                 .help(entry.text)
             if !entry.tag.isEmpty {
                 Text(entry.tag)
-                    .font(.system(size: 11))
+                    .font(Theme.font(11))
                     .lineLimit(1)
                     .fixedSize()
                     .foregroundColor(Theme.neutral600)
@@ -285,7 +285,7 @@ struct RowIconButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: systemName)
-                .font(.system(size: size, weight: .semibold))
+                .font(.system(size: Theme.scaled(size), weight: .semibold))
                 .foregroundColor(hovering ? (danger ? Theme.orange600 : Theme.accent700) : Theme.neutral500)
                 .frame(width: 22, height: 22)
                 .background(
@@ -330,7 +330,7 @@ struct PrimaryButton: View {
     var body: some View {
         Button(action: action) {
             Text(title)
-                .font(.system(size: 13, weight: .semibold))
+                .font(Theme.font(13, weight: .semibold))
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
                 .background(RoundedRectangle(cornerRadius: 8).fill(Theme.accent))
@@ -350,7 +350,7 @@ struct SecondaryButton: View {
     var body: some View {
         Button(action: action) {
             Text(title)
-                .font(.system(size: 13, weight: .semibold))
+                .font(Theme.font(13, weight: .semibold))
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
                 .background(RoundedRectangle(cornerRadius: 8).fill(Theme.neutral200))

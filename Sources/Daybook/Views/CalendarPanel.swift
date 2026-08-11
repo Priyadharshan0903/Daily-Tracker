@@ -48,7 +48,7 @@ struct CalendarPanel: View {
     private var header: some View {
         HStack(spacing: 4) {
             Text(monthTitle)
-                .font(.system(size: 13, weight: .semibold))
+                .font(Theme.font(13, weight: .semibold))
 
             Spacer(minLength: 0)
 
@@ -56,7 +56,7 @@ struct CalendarPanel: View {
                 onSelect(todayKey)
             } label: {
                 Text("Today")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(Theme.font(11, weight: .semibold))
                     .padding(.horizontal, 10)
                     .padding(.vertical, 3)
                     .background(Capsule().fill(Theme.accent100))
@@ -75,7 +75,7 @@ struct CalendarPanel: View {
     private func monthButton(_ symbol: String, disabled: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: symbol)
-                .font(.system(size: 10, weight: .bold))
+                .font(Theme.font(10, weight: .bold))
                 .foregroundColor(disabled ? Theme.neutral300 : Theme.neutral700)
                 .frame(width: 22, height: 22)
                 .contentShape(Rectangle())
@@ -91,7 +91,7 @@ struct CalendarPanel: View {
         HStack(spacing: 0) {
             ForEach(Array(weekdaySymbols.enumerated()), id: \.offset) { _, symbol in
                 Text(symbol)
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(Theme.font(10, weight: .semibold))
                     .foregroundColor(Theme.neutral500)
                     .frame(maxWidth: .infinity)
             }
@@ -132,7 +132,7 @@ struct CalendarPanel: View {
                         Circle().strokeBorder(Theme.accent.opacity(0.55), lineWidth: 1)
                     }
                     Text("\(calendar.component(.day, from: date))")
-                        .font(.system(size: 12, weight: isSelected || isToday ? .semibold : .regular))
+                        .font(Theme.font(12, weight: isSelected || isToday ? .semibold : .regular))
                         .foregroundColor(isSelected ? .white : Theme.text)
                 }
                 .frame(width: markSize, height: markSize)
@@ -167,7 +167,7 @@ struct CalendarPanel: View {
         HStack(spacing: 4) {
             Circle().fill(color).frame(width: 3, height: 3)
             Text(label)
-                .font(.system(size: 9.5))
+                .font(Theme.font(9.5))
                 .foregroundColor(Theme.neutral500)
         }
     }

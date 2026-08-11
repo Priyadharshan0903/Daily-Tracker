@@ -127,7 +127,7 @@ struct EntryRow: View {
 
     private var title: some View {
         Text(entry.text)
-            .font(.system(size: 14.5))
+            .font(Theme.font(14.5))
             .strikethrough(entry.done)
             .foregroundColor(entry.done ? Theme.neutral600 : Theme.text)
             .lineLimit(2)
@@ -245,7 +245,7 @@ private struct EntryEditor: View {
                         onBlur: onSubmit)
             // 18pt is the field's exact intrinsic height; leave slack for the
             // field editor AppKit installs on focus.
-            .frame(height: 21)
+            .frame(height: Theme.scaled(21))
             .padding(.horizontal, 6)
             .padding(.vertical, 3)
             .background(RoundedRectangle(cornerRadius: 6).fill(Theme.surface))
@@ -260,7 +260,7 @@ private struct SaveButton: View {
     var body: some View {
         Button(action: action) {
             Text("Save")
-                .font(.system(size: 11, weight: .semibold))
+                .font(Theme.font(11, weight: .semibold))
                 .padding(.horizontal, 10)
                 .padding(.vertical, 4)
                 .background(Capsule().fill(Theme.accent))
@@ -284,7 +284,7 @@ private struct EntryActions: View {
         Group {
             if let originLabel {
                 Text(originLabel)
-                    .font(.system(size: 10, weight: .medium))
+                    .font(Theme.font(10, weight: .medium))
                     .lineLimit(1)
                     .fixedSize()
                     .padding(.horizontal, 7)

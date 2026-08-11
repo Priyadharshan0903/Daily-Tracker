@@ -126,9 +126,9 @@ struct TodayView: View {
         } label: {
             HStack(spacing: 4) {
                 Image(systemName: "arrow.uturn.backward")
-                    .font(.system(size: 9, weight: .semibold))
+                    .font(Theme.font(9, weight: .semibold))
                 Text("Today")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(Theme.font(11, weight: .semibold))
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 4)
@@ -144,7 +144,7 @@ struct TodayView: View {
     private var fileUnderRow: some View {
         FlowLayout(spacing: 6, lineSpacing: 6) {
             Text("File under")
-                .font(.system(size: 12))
+                .font(Theme.font(12))
                 .foregroundColor(Theme.neutral600)
                 .padding(.vertical, 4)
             ForEach(store.tags, id: \.self) { tag in
@@ -157,7 +157,7 @@ struct TodayView: View {
     private var filterChips: some View {
         FlowLayout(spacing: 6, lineSpacing: 6) {
             Text("Show")
-                .font(.system(size: 12))
+                .font(Theme.font(12))
                 .foregroundColor(Theme.neutral600)
                 .padding(.vertical, 4)
             TagChip(label: "All", selected: tagFilter == nil) { setFilter(nil) }
@@ -228,10 +228,10 @@ struct TodayView: View {
         } label: {
             HStack(spacing: 5) {
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 8, weight: .bold))
+                    .font(Theme.font(8, weight: .bold))
                     .rotationEffect(.degrees(showDone ? 90 : 0))
                 Text("\(count) done")
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(Theme.font(10, weight: .semibold))
                     .kerning(0.8)
                     .textCase(.uppercase)
                 Spacer(minLength: 0)
@@ -250,11 +250,11 @@ struct TodayView: View {
     private var noMatchesState: some View {
         VStack(spacing: 6) {
             Text("Nothing tagged \(tagFilter?.isEmpty == false ? tagFilter! : "“No tag”")")
-                .font(.system(size: 13))
+                .font(Theme.font(13))
                 .foregroundColor(Theme.neutral600)
             Button("Clear filter") { setFilter(nil) }
                 .buttonStyle(.plain)
-                .font(.system(size: 12, weight: .semibold))
+                .font(Theme.font(12, weight: .semibold))
                 .foregroundColor(Theme.accent700)
                 .pointingCursor()
         }
@@ -274,10 +274,10 @@ struct TodayView: View {
                 VStack(spacing: 3) {
                     Text(isToday ? "Nothing logged yet"
                                  : "Nothing planned for \(store.shortLabel(forDayKey: dayKey))")
-                        .font(.system(size: 13.5, weight: .medium))
+                        .font(Theme.font(13.5, weight: .medium))
                         .foregroundColor(Theme.neutral600)
                     Text("The first line is the hardest.")
-                        .font(.system(size: 12))
+                        .font(Theme.font(12))
                         .italic()
                         .foregroundColor(Theme.neutral500)
                 }
@@ -290,7 +290,7 @@ struct TodayView: View {
 
     private func sectionHeader(_ text: String, color: Color) -> some View {
         Text(text.uppercased())
-            .font(.system(size: 10, weight: .semibold))
+            .font(Theme.font(10, weight: .semibold))
             .kerning(0.8)
             .foregroundColor(color)
             .padding(.horizontal, 6)
@@ -312,7 +312,7 @@ struct TodayView: View {
                 withAnimation(.easeOut(duration: 0.18)) { showFilters.toggle() }
             } label: {
                 Image(systemName: "line.3.horizontal.decrease")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(Theme.font(11, weight: .semibold))
                     .foregroundColor(tagFilter == nil ? Theme.neutral500 : Theme.accent)
                     .frame(width: 24, height: 24)
                     .background(
@@ -326,7 +326,7 @@ struct TodayView: View {
 
             Button(action: add) {
                 Text("Add")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(Theme.font(13, weight: .semibold))
                     .padding(.horizontal, 16)
                     .padding(.vertical, 6)
                     .background(Capsule().fill(Theme.accent))

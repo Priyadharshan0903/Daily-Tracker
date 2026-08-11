@@ -79,7 +79,7 @@ struct RootView: View {
                 .resizable()
                 .frame(width: 20, height: 20)
             Text("Daybook")
-                .font(.system(size: 17, weight: .semibold))
+                .font(Theme.font(17, weight: .semibold))
                 .fixedSize()
             Spacer(minLength: 8)
             if tab == .today {
@@ -97,7 +97,7 @@ struct RootView: View {
                 withAnimation(.easeOut(duration: 0.18)) { showCalendar.toggle() }
             } label: {
                 Text(store.longLabel(forDayKey: dayKey))
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(Theme.font(13, weight: .semibold))
                     .foregroundColor(Theme.text)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
@@ -114,7 +114,7 @@ struct RootView: View {
     private func stepButton(_ symbol: String, disabled: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: symbol)
-                .font(.system(size: 10, weight: .bold))
+                .font(Theme.font(10, weight: .bold))
                 .foregroundColor(disabled ? Theme.neutral300 : Theme.neutral700)
                 .frame(width: 20, height: 20)
                 .contentShape(Rectangle())
@@ -139,7 +139,7 @@ struct RootView: View {
                     select(item)
                 } label: {
                     Text(item.rawValue)
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(Theme.font(13, weight: .semibold))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 7)
                         .background {
@@ -178,7 +178,7 @@ struct RootView: View {
                 // The quip absorbs the slack; the switcher keeps its natural
                 // width so the footer can never push the popover wider.
                 Text(quip)
-                    .font(.system(size: 13))
+                    .font(Theme.font(13))
                     .italic()
                     .foregroundColor(Theme.neutral600)
                     .lineLimit(1)

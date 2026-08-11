@@ -76,14 +76,14 @@ struct WorkspaceButton: View {
             HStack(spacing: 6) {
                 WorkspaceAvatar(workspace: store.activeWorkspace, size: 18)
                 Text(store.activeWorkspace.name)
-                    .font(.system(size: 11.5, weight: .medium))
+                    .font(Theme.font(11.5, weight: .medium))
                     .lineLimit(1)
                     .truncationMode(.tail)
                     .frame(maxWidth: 96, alignment: .leading)
                     .fixedSize(horizontal: false, vertical: true)
                     .foregroundColor(Theme.neutral700)
                 Image(systemName: "chevron.up")
-                    .font(.system(size: 7, weight: .bold))
+                    .font(Theme.font(7, weight: .bold))
                     .foregroundColor(Theme.neutral500)
                     .rotationEffect(.degrees(isOpen ? 180 : 0))
             }
@@ -113,13 +113,13 @@ struct WorkspacePanel: View {
                     HStack(spacing: 8) {
                         WorkspaceAvatar(workspace: workspace, size: 22)
                         Text(workspace.name)
-                            .font(.system(size: 12.5, weight: .medium))
+                            .font(Theme.font(12.5, weight: .medium))
                             .foregroundColor(Theme.text)
                             .lineLimit(1)
                         Spacer(minLength: 12)
                         if workspace.id == store.activeWorkspace.id {
                             Image(systemName: "checkmark")
-                                .font(.system(size: 10, weight: .bold))
+                                .font(Theme.font(10, weight: .bold))
                                 .foregroundColor(Theme.accent)
                         }
                     }
@@ -138,10 +138,10 @@ struct WorkspacePanel: View {
             } label: {
                 HStack(spacing: 8) {
                     Image(systemName: "plus")
-                        .font(.system(size: 10, weight: .bold))
+                        .font(Theme.font(10, weight: .bold))
                         .frame(width: 22)
                     Text("New workspace…")
-                        .font(.system(size: 12.5, weight: .medium))
+                        .font(Theme.font(12.5, weight: .medium))
                     Spacer(minLength: 0)
                 }
                 .foregroundColor(Theme.accent700)
@@ -199,7 +199,7 @@ struct AvatarPicker: View {
                 ForEach(AvatarCatalog.choices, id: \.self) { emoji in
                     Button { onPick(emoji) } label: {
                         Text(emoji)
-                            .font(.system(size: 15))
+                            .font(Theme.font(15))
                             .frame(width: 26, height: 26)
                             .background(
                                 RoundedRectangle(cornerRadius: 6)
@@ -214,7 +214,7 @@ struct AvatarPicker: View {
 
             Button { onPick("") } label: {
                 Text("Use the initial instead")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(Theme.font(11, weight: .medium))
                     .foregroundColor(Theme.accent700)
             }
             .buttonStyle(.plain)
