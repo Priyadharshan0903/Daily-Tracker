@@ -8,30 +8,20 @@ Swift + SwiftUI, no third-party dependencies, ~2.7 MB, builds without Xcode.
 
 ## About
 
-Most of us can't answer "what did you actually do last week?" without scrolling back through
-Git history, Slack and a calendar. Not because the work didn't happen, but because nothing
-recorded it while it was happening. Daybook exists to close that gap.
+**What did you actually do last week?** Most of us reconstruct it from Git history, Slack and a
+calendar — not because the work didn't happen, but because nothing recorded it while it did.
 
-It's a **work log first, planner second**. You keep it in the menu bar, jot a line whenever
-something ships, and at the end of the week you have an honest record — ready for your standup,
-your 1:1, your weekly report, or the performance review six months from now when you genuinely
-cannot remember what February looked like.
+Daybook is a work log first, planner second. It sits in the menu bar: jot a line when something
+ships, and by Friday you have an honest record for your standup, your 1:1, or the review six
+months from now.
 
-Three ideas shape it:
+- **Capture is nearly free.** A log you don't write is worthless, so the popover opens focused
+  and Return files it.
+- **Nothing is rewritten behind your back.** Unfinished work follows you forward but keeps the
+  date it started, so the weekly report stays truthful.
+- **It stays on your Mac.** No account, no sync, no telemetry — one JSON file you own.
 
-**Logging has to be nearly free.** If capturing a task takes more than a couple of seconds you
-won't do it, and a journal you don't write is worthless. The popover opens from the menu bar,
-the input is focused and waiting, and Return files it.
-
-**Nothing gets rewritten behind your back.** Unfinished work follows you to the next day, but
-it keeps the date you started it — so the weekly report says when things really began. The
-record stays truthful, which is the whole point of keeping one.
-
-**It's yours and it stays here.** No account, no sync, no telemetry. One JSON file on your Mac
-that you can read, back up, or delete.
-
-Workspaces let you keep separate books — day job in one, career growth or a side project in
-another — each with its own entries, tags and weekly notes.
+Workspaces keep separate books: the day job in one, career growth or a side project in another.
 
 ---
 
