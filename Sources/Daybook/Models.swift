@@ -22,6 +22,64 @@ enum WeekStart: String, Codable, CaseIterable, Identifiable {
     var firstWeekday: Int { self == .sunday ? 1 : 2 }
 }
 
+// MARK: - Roadmap
+
+/// Something logged against the roadmap rather than against a work day. Filed
+/// under a track instead of a tag, and pinned to a plan week rather than a date
+/// — the plan advances when you tick a checkpoint, not when the calendar does.
+struct RoadmapEntry: Identifiable, Codable, Equatable {
+    var id: UUID = UUID()
+    var text: String
+    var track: String
+    var done: Bool = false
+    var week: Int
+    /// 0 = Monday … 6 = Sunday.
+    var dayIndex: Int
+}
+
+/// A link the user added themselves, shown in the Library alongside the baked-in
+/// catalogue.
+struct CustomResource: Identifiable, Codable, Equatable {
+    var id: UUID = UUID()
+    var title: String
+    var url: String
+    var track: String
+}
+
+/// Progress against `RoadmapPlan`. Stored per workspace so each one can run its
+/// own plan; hidden rather than deleted when the feature is switched off.
+struct RoadmapState: Codable, Equatable {
+    var planWeek: Int = 1
+    /// Plan weeks whose checkpoint has been ticked.
+    var ticked: Set<Int> = []
+    /// Week number as a string → how many times it has been repeated.
+    var attempts: [String: Int] = [:]
+    /// Consecutive weeks repeated without ticking. Four triggers the nudge.
+    var missStreak: Int = 0
+    /// "week:dayIndex:slotIndex" for each ticked rhythm slot.
+    var slotDone: Set<String> = []
+    var entries: [RoadmapEntry] = []
+    /// `RoadmapResource.id` for each link marked read.
+    var resourceDone: Set<String> = []
+    var customResources: [CustomResource] = []
+
+    init() {}
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        planWeek = try container.decodeIfPresent(Int.self, forKey: .planWeek) ?? 1
+        ticked = try container.decodeIfPresent(Set<Int>.self, forKey: .ticked) ?? []
+        attempts = try container.decodeIfPresent([String: Int].self, forKey: .attempts) ?? [:]
+        missStreak = try container.decodeIfPresent(Int.self, forKey: .missStreak) ?? 0
+        slotDone = try container.decodeIfPresent(Set<String>.self, forKey: .slotDone) ?? []
+        entries = try container.decodeIfPresent([RoadmapEntry].self, forKey: .entries) ?? []
+        resourceDone = try container.decodeIfPresent(Set<String>.self, forKey: .resourceDone) ?? []
+        customResources = try container.decodeIfPresent([CustomResource].self, forKey: .customResources) ?? []
+    }
+
+    static func slotKey(week: Int, day: Int, slot: Int) -> String { "\(week):\(day):\(slot)" }
+}
+
 // MARK: - Workspaces
 
 /// A self-contained tracking space: its own entries, week notes and tags.
@@ -37,6 +95,8 @@ struct Workspace: Identifiable, Codable, Equatable {
     var defaultTag: String = ""
     /// An emoji shown instead of the name's initial. "" falls back to the letter.
     var avatar: String = ""
+    /// Progress against the 120-week roadmap. Each workspace runs its own.
+    var roadmap: RoadmapState = RoadmapState()
 
     static let starterTags = ["Cadence", "Reports", "Bugs", "Meetings"]
 
@@ -47,7 +107,8 @@ struct Workspace: Identifiable, Codable, Equatable {
          weekNotes: [String: WeekNotes] = [:],
          tags: [String] = Workspace.starterTags,
          defaultTag: String = "",
-         avatar: String = "") {
+         avatar: String = "",
+         roadmap: RoadmapState = RoadmapState()) {
         self.id = id
         self.name = name
         self.entries = entries
@@ -55,6 +116,7 @@ struct Workspace: Identifiable, Codable, Equatable {
         self.tags = tags
         self.defaultTag = defaultTag
         self.avatar = avatar
+        self.roadmap = roadmap
     }
 
     init(from decoder: Decoder) throws {
@@ -66,6 +128,7 @@ struct Workspace: Identifiable, Codable, Equatable {
         tags = try container.decodeIfPresent([String].self, forKey: .tags) ?? Workspace.starterTags
         defaultTag = try container.decodeIfPresent(String.self, forKey: .defaultTag) ?? ""
         avatar = try container.decodeIfPresent(String.self, forKey: .avatar) ?? ""
+        roadmap = try container.decodeIfPresent(RoadmapState.self, forKey: .roadmap) ?? RoadmapState()
     }
 }
 
@@ -78,6 +141,9 @@ struct AppSettings: Codable, Equatable {
     var launchAtLogin: Bool = false
     /// Multiplier on every font in the app. Clamped when applied.
     var textScale: Double = 1
+    /// Shows the roadmap. Off hides it everywhere; nothing is deleted, and the
+    /// progress is exactly where it was when switched back on.
+    var roadmapEnabled: Bool = false
 
     init() {}
 
@@ -89,6 +155,7 @@ struct AppSettings: Codable, Equatable {
         weekStart = try container.decodeIfPresent(WeekStart.self, forKey: .weekStart) ?? .monday
         launchAtLogin = try container.decodeIfPresent(Bool.self, forKey: .launchAtLogin) ?? false
         textScale = try container.decodeIfPresent(Double.self, forKey: .textScale) ?? 1
+        roadmapEnabled = try container.decodeIfPresent(Bool.self, forKey: .roadmapEnabled) ?? false
     }
 }
 

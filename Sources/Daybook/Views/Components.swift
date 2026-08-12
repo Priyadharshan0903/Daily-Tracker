@@ -325,6 +325,7 @@ struct RadioDot: View {
 /// Primary pill/rounded action button (accent background, white label).
 struct PrimaryButton: View {
     let title: String
+    var enabled: Bool = true
     let action: () -> Void
 
     var body: some View {
@@ -333,12 +334,33 @@ struct PrimaryButton: View {
                 .font(Theme.font(13, weight: .semibold))
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
-                .background(RoundedRectangle(cornerRadius: 8).fill(Theme.accent))
-                .foregroundColor(.white)
+                .background(RoundedRectangle(cornerRadius: 8).fill(enabled ? Theme.accent : Theme.neutral300))
+                .foregroundColor(enabled ? .white : Theme.neutral600)
                 .contentShape(RoundedRectangle(cornerRadius: 8))
         }
         .buttonStyle(.plain)
-        .pointingCursor()
+        .disabled(!enabled)
+        .pointingCursor(enabled)
+    }
+}
+
+/// Thin capsule meter. Used wherever the roadmap shows "how far through".
+struct ProgressBar: View {
+    /// 0…1. Clamped, so a bad count can't overflow the track.
+    let value: Double
+    var height: CGFloat = 5
+    var tint: Color = Theme.accent
+
+    var body: some View {
+        GeometryReader { geo in
+            ZStack(alignment: .leading) {
+                Capsule().fill(Theme.neutral200)
+                Capsule()
+                    .fill(tint)
+                    .frame(width: geo.size.width * min(max(value, 0), 1))
+            }
+        }
+        .frame(height: Theme.scaled(height))
     }
 }
 

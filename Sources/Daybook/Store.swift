@@ -147,7 +147,7 @@ final class Store: ObservableObject {
         data.workspaces.firstIndex { $0.id == data.activeWorkspaceID } ?? 0
     }
 
-    private func mutateActive(_ change: (inout Workspace) -> Void) {
+    func mutateActive(_ change: (inout Workspace) -> Void) {
         let index = activeIndex
         guard data.workspaces.indices.contains(index) else { return }
         change(&data.workspaces[index])

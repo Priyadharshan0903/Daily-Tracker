@@ -74,6 +74,14 @@ struct SettingsView: View {
                     .toggleStyle(DaybookToggleStyle())
                     .labelsHidden()
             }
+
+            RowDivider()
+
+            SettingsRow("Roadmap", hint: "The 120-week plan. Hiding it keeps your progress") {
+                Toggle("", isOn: binding(\.roadmapEnabled))
+                    .toggleStyle(DaybookToggleStyle())
+                    .labelsHidden()
+            }
         }
     }
 
